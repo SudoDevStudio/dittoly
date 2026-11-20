@@ -117,7 +117,7 @@
       "name": "How does Dittoly keep AI-drafted automation safe?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Nothing AI drafts runs until a person approves it. The approver sees what the Flow can read, write and reach, policies can require more than one approver, and the engine runs only the approved version. Content from outside, such as a prompt injection, can never reach a write on its own."
+        "text": "Nothing AI drafts runs until a person approves it. The approver sees what the Flow can read, write and reach, policies can require more than one approver, and the engine runs only the approved version. Text a model wrote waits for a sign-off before any step that changes something; text from an app or a webhook waits wherever it would choose a destination or something to run. An approver can accept a named path in advance, with a written reason, and that acceptance is recorded in the audit log."
       }
     },
     {
@@ -293,7 +293,7 @@
           </article>
           <article class="feature">
             <h3>AI with limits</h3>
-            <p>Pinned models, per-run cost caps, team budgets and automatic stops when a control fails. Prompt-injected content can never reach a write on its own.</p>
+            <p>Pinned models, per-run cost caps, team budgets and automatic stops when a control fails. Text a model wrote waits for a sign-off before it can change anything.</p>
           </article>
           <article class="feature">
             <h3>Works with your AI assistants</h3>
@@ -386,7 +386,7 @@ docker compose exec dittoly \
               <li><a href="docs.html#apps">Build an app for your team</a><span>An app is a set of pages over your team's approved Flows: forms, tables, cards, an inbox and a runs list.</span></li>
               <li><a href="docs.html#plans">Turn a PDF into Flows</a><span>Upload a document describing what you want automated. Dittoly breaks it down and drafts the modules and Flows.</span></li>
               <li><a href="docs.html#git">Keep everything in git</a><span>Dittoly writes what people approve to a git repository, and changes merged in git come back as versions that wait for approval.</span></li>
-              <li><a href="docs.html#export">Export an app that runs on its own</a><span>Package approved Flows as a TypeScript project with no database and no connection back to Dittoly.</span></li>
+              <li><a href="docs.html#export">Export an app that runs on its own</a><span>Package approved Flows as a TypeScript project with no database of its own and no connection back to Dittoly. Flows that wait for a person keep their runs in a Redis or Postgres you point it at; the rest run in memory.</span></li>
             </ul>
           </div>
           <div class="doc-group">
@@ -434,7 +434,7 @@ docker compose exec dittoly \
           </details>
           <details>
             <summary><h3>How does Dittoly keep AI-drafted automation safe?</h3></summary>
-            <p>Nothing AI drafts runs until a person approves it. The approver sees what the Flow can read, write and reach, policies can require more than one approver, and the engine runs only the approved version. Content from outside, such as a prompt injection, can never reach a write on its own.</p>
+            <p>Nothing AI drafts runs until a person approves it. The approver sees what the Flow can read, write and reach, policies can require more than one approver, and the engine runs only the approved version. Text a model wrote waits for a sign-off before any step that changes something; text from an app or a webhook waits wherever it would choose a destination or something to run. An approver can accept a named path in advance, with a written reason, and that acceptance is recorded in the audit log.</p>
           </details>
           <details>
             <summary><h3>Which languages does error-to-fix support?</h3></summary>

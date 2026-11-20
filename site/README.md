@@ -4,7 +4,9 @@ The introductory page for Dittoly: plain HTML, CSS and a few lines of JavaScript
 requests (system fonts, inline SVG).
 
 - **Preview:** open `site/index.html` in a browser, or run `npx serve site`.
-- **Host:** any static host. For GitHub Pages, publish the `site/` folder.
+- **Host:** any static host. On GitHub Pages, `.github/workflows/pages.yml` uploads this folder on every push to
+  `main` that touches it (Pages' "deploy from a branch" can serve only the repository root or `docs/`, so the folder
+  is uploaded as an artifact instead). Turn it on once under **Settings → Pages → Source: GitHub Actions**.
 - **Style:** minimal layout with one spatial element, the layered Flow in the hero. Colours follow the app
   (`web/src/styles.css`) in light and dark. The hero tilts toward the pointer, except when the visitor's system asks for
   reduced motion.
