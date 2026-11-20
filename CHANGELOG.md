@@ -2,11 +2,22 @@
 
 What changed for the person using Dittoly, newest first. Entries that only move code around are left out.
 
-This project has not made a numbered release yet: run `main`. The format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions will follow
-[Semantic Versioning](https://semver.org/spec/v2.0.0.html) from the first release.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html). Before 1.0.0 a minor version can change behaviour:
+read the entry before upgrading.
 
 ## Unreleased
+
+## 0.1.0 — 2026-11-20
+
+The first numbered release. Everything described in the README and `docs/` is in it: modules, Flows and Super
+Flows, approvals that freeze an exact version, per-member credentials and delegation, the two sandbox backends,
+the audit chain and its streams, apps and app export, MCP, plans from a PDF, git sync, and the error-to-fix
+workflow across nine language toolchains.
+
+It has not been run against real Jira, GitLab or Slack accounts, or a real identity provider — see the status
+note in [docs/README.md](docs/README.md). Treat it as a first release to try on your own server, not as something
+to point at production unattended.
 
 ### Added
 
@@ -34,3 +45,5 @@ This project has not made a numbered release yet: run `main`. The format follows
 
 - Prompt-injection containment now covers app data and webhook payloads, with the influence a value has at a step
   deciding whether a sign-off is required.
+- **A website**, published from `site/` to GitHub Pages, and `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` and issue
+  templates for people who want to take part.
