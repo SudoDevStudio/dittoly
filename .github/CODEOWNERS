@@ -1,4 +1,5 @@
-# Every change needs the owner's review (with "Require review from Code Owners" on in the main branch ruleset).
+# Who is asked to review what. "Require review from Code Owners" is off in the main branch ruleset: with a single
+# maintainer it would block every pull request, because GitHub does not let an author review their own.
 * @SudoDevStudio
 
 # Called out so they stand out in reviews: what CI runs, what isolates untrusted code, and what guards access.
