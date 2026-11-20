@@ -225,7 +225,8 @@ describe.skipIf(!ready)('web portal (browser)', () => {
     await page.locator('#svc').fill('github');
     await page.getByLabel('Token or secret').fill('ghp_supersecret');
     await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await page.getByText('github', { exact: true }).waitFor();
+    // In the stored list, not anywhere the name appears: the page also names the app it was opened for.
+    await page.locator('.credential-card').getByText('github', { exact: true }).waitFor();
     await expect(page.content()).resolves.not.toContain('ghp_supersecret');
   });
 
