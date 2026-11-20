@@ -1,0 +1,92 @@
+{
+  "name": "jira",
+  "version": "1.1.0",
+  "title": "Jira Cloud",
+  "description": "Finds Jira Cloud issues with JQL on your organization's site, set once by an admin.",
+  "hosts": [
+    "{{settings.site}}"
+  ],
+  "settings": [
+    {
+      "id": "site",
+      "type": "host",
+      "label": "Your Jira Cloud site",
+      "help": "The address of your Jira Cloud site, as in your browser's address bar, without https://.",
+      "example": "acme.atlassian.net",
+      "pattern": "*.atlassian.net",
+      "default": "example.atlassian.net"
+    }
+  ],
+  "credentials": [
+    {
+      "id": "jira_api_token",
+      "service": "jira",
+      "label": "Jira email and API token (email:token)",
+      "hosts": [
+        "{{settings.site}}"
+      ],
+      "placement": {
+        "type": "basic"
+      }
+    }
+  ],
+  "actions": [
+    {
+      "name": "search_issues",
+      "title": "Search issues",
+      "description": "Returns the key, summary and status of issues matching a JQL query.",
+      "effect": "read",
+      "credentials": [
+        "jira_api_token"
+      ],
+      "input": {
+        "type": "object",
+        "properties": {
+          "jql": {
+            "type": "string",
+            "minLength": 1
+          },
+          "maxResults": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "jql"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "issues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "summary",
+                "status"
+              ]
+            }
+          }
+        },
+        "required": [
+          "issues"
+        ]
+      }
+    }
+  ]
+}

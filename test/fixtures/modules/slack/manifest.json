@@ -1,0 +1,108 @@
+{
+  "name": "slack",
+  "version": "1.0.0",
+  "title": "Slack",
+  "description": "Posts messages to a Slack channel, and deletes them again.",
+  "hosts": [
+    "slack.com"
+  ],
+  "credentials": [
+    {
+      "id": "slack_token",
+      "service": "slack",
+      "label": "Slack token with chat:write",
+      "hosts": [
+        "slack.com"
+      ],
+      "placement": {
+        "type": "bearer"
+      }
+    }
+  ],
+  "actions": [
+    {
+      "name": "post_message",
+      "title": "Post a message",
+      "description": "Posts a text message to a channel.",
+      "effect": "write",
+      "credentials": [
+        "slack_token"
+      ],
+      "input": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "minLength": 1
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "channel",
+          "text"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "ts": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ts"
+        ]
+      },
+      "undo": {
+        "action": "delete_message",
+        "input": {
+          "channel": "{{ input.channel }}",
+          "ts": "{{ output.ts }}"
+        }
+      }
+    },
+    {
+      "name": "delete_message",
+      "title": "Delete a message",
+      "description": "Deletes a message the token posted, by its channel and timestamp.",
+      "effect": "write",
+      "credentials": [
+        "slack_token"
+      ],
+      "input": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ts": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "channel",
+          "ts"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "ts": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ts"
+        ]
+      }
+    }
+  ]
+}

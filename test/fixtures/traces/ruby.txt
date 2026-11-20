@@ -1,0 +1,9 @@
+/app/lib/cart.rb:3:in 'Integer#*': nil can't be coerced into Integer (TypeError)
+
+    items.sum { |i| i[:price] * i[:qty] }
+                                ^^^^^^^
+	from /app/lib/cart.rb:3:in 'block in Cart.total'
+	from /app/lib/cart.rb:3:in 'Array#sum'
+	from /app/lib/cart.rb:3:in 'Cart.total'
+	from main.rb:2:in 'Object#handle'
+	from main.rb:3:in '<main>'

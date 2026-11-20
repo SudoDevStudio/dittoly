@@ -1,0 +1,154 @@
+name: CI
+
+# Runs on pull requests (the PR merged into main, as GitHub checks it out) and again on every push to
+# main, so main always has a result of its own: a PR merged before its checks finished, or two PRs that
+# each passed alone, are caught there. Run it by hand with workflow_dispatch when needed.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  # A new push to a PR replaces its older run; on main every commit is its own group, so none is dropped.
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  # What the PR changes, so the expensive jobs run only when they can be affected. A skipped job
+  # counts as passed for required checks.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+      frontend: ${{ steps.diff.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: diff
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"; echo "frontend=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          echo "$files"
+          # Only documentation: Markdown anywhere, docs/, the licence.
+          if echo "$files" | grep -qvE '(\.md$|^docs/|^site/|^LICENSE$)'; then code=true; else code=false; fi
+          # Exported app frontends: the templates, their test, the lockfile or this workflow.
+          if echo "$files" | grep -qE '^(src/export/|test/frontend-builds\.test\.ts$|package-lock\.json$|\.github/workflows/ci\.yml$)'; then frontend=true; else frontend=false; fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: dittoly
+        ports: ['5433:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s --health-retries 30
+      rabbitmq:
+        image: rabbitmq:4.2-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: dittoly
+          RABBITMQ_DEFAULT_PASS: dittoly
+        ports: ['5672:5672']
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q check_port_connectivity"
+          --health-interval 5s --health-retries 30
+      # Database modules are tested against real servers too (the tests wait for them to start).
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: dittoly
+          MARIADB_DATABASE: shop
+        ports: ['13306:3306']
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: 'Y'
+          MSSQL_SA_PASSWORD: 'Dittoly!Test123'
+        ports: ['14330:1433']
+      # Exported apps keep waiting runs in Redis or Postgres.
+      redis:
+        image: redis:8-alpine
+        ports: ['6380:6379']
+      # MongoDB 8 refuses to start on Linux kernels 6.19 to 7.0.13, which the runners now use
+      # (SERVER-121912, fixed by kernel 7.0.14); 7.0 runs the same tests. Back to 8 once runners move on.
+      # Its own log is a JSON line per connection (thousands per run) and is printed at the end of the job, where it
+      # pushed the test results out of the log's tail: kept out of the job log.
+      mongodb:
+        image: mongo:7.0
+        env:
+          MONGO_INITDB_ROOT_USERNAME: dittoly
+          MONGO_INITDB_ROOT_PASSWORD: dittoly
+        ports: ['27018:27017']
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' | grep -q 1"
+          --health-interval 2s --health-retries 30
+          --log-driver none
+    env:
+      TEST_DATABASE_URL: postgres://postgres@127.0.0.1:5433/dittoly_test
+      TEST_AMQP_URL: amqp://dittoly:dittoly@127.0.0.1:5672
+      TEST_MYSQL_URL: mysql://root:dittoly@127.0.0.1:13306/shop
+      TEST_MSSQL_URL: mssql://sa:Dittoly!Test123@127.0.0.1:14330/master
+      TEST_MONGO_URL: mongodb://dittoly:dittoly@127.0.0.1:27018
+      TEST_REDIS_URL: redis://127.0.0.1:6380
+      # Also run the sandbox tests in containers, as a shared server does.
+      DITTOLY_TEST_DOCKER_IMAGE: node:26-alpine
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      - name: Create the test database
+        run: psql -h 127.0.0.1 -p 5433 -U postgres -c 'CREATE DATABASE dittoly_test'
+      - name: Install Chromium for the portal test
+        run: |
+          npx playwright-core install --with-deps chromium
+          echo "DITTOLY_CHROMIUM=$(node -e "console.log(require('playwright-core').chromium.executablePath())")" >> "$GITHUB_ENV"
+      - run: docker pull node:26-alpine
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+      # A failed portal test leaves its screenshot, URL, browser errors and Playwright trace
+      # (synthetic test data only). Open a trace with: npx playwright show-trace trace.zip
+      - name: Keep what failed portal tests saw
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: portal-test-failures
+          path: test-artifacts/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Exported apps: every frontend template installs and builds with its pinned versions.
+  frontend-templates:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run test/frontend-builds.test.ts
+        env:
+          TEST_FRONTEND_BUILD: '1'

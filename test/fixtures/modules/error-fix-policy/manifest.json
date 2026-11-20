@@ -1,0 +1,199 @@
+{
+  "name": "error-fix-policy",
+  "version": "1.0.0",
+  "title": "Error-to-fix rules",
+  "description": "The rules of the error to verified fix Flow, with no network access: cleans an alert into a fingerprint text, decides from the error_fixes table whether to comment, only count or attempt a fix (no repeated merge requests, a daily cap), reads the AI triage, and gates the push. Needs no key: it calls no app.",
+  "hosts": [],
+  "credentials": [],
+  "actions": [
+    {
+      "name": "normalize",
+      "title": "Clean an alert",
+      "description": "Trims the alert's fields, finds the error type and the top stack frame of the app's own code, and builds the stable text to fingerprint (ids, numbers and line numbers removed).",
+      "effect": "read",
+      "credentials": [],
+      "input": {
+        "type": "object",
+        "properties": {
+          "service": { "type": "string", "pattern": "^[A-Za-z0-9_.:/-]{1,100}$" },
+          "message": { "type": "string", "minLength": 1, "maxLength": 20000 },
+          "stack": { "type": "string", "maxLength": 50000 },
+          "traceId": { "type": "string", "pattern": "^[A-Za-z0-9-]{0,64}$" },
+          "time": { "type": "string", "maxLength": 40 },
+          "commit": { "type": "string", "pattern": "^([0-9a-f]{7,40})?$" },
+          "repo": { "type": "string", "maxLength": 255, "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*(/[A-Za-z0-9_][A-Za-z0-9_.-]*){1,5}$" },
+          "targetBranch": { "type": "string", "maxLength": 200, "pattern": "^[A-Za-z0-9_][A-Za-z0-9._/-]{0,199}$" },
+          "allowedRepos": { "type": "array", "maxItems": 50, "items": { "type": "string", "maxLength": 255 } },
+          "lokiQuery": { "type": "string", "maxLength": 1000, "pattern": "^\\{[^\\r\\n]*$" }
+        },
+        "required": ["service", "message", "repo", "targetBranch", "allowedRepos"],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "text": { "type": "string" },
+          "service": { "type": "string" },
+          "errorType": { "type": "string" },
+          "topFrame": { "type": "string" },
+          "messagePattern": { "type": "string" },
+          "message": { "type": "string" },
+          "stack": { "type": "string" },
+          "traceId": { "type": "string" },
+          "around": { "type": "string" },
+          "repo": { "type": "string" },
+          "repoAllowed": { "type": "boolean" },
+          "ref": { "type": "string" },
+          "targetBranch": { "type": "string" },
+          "lokiQuery": { "type": "string" },
+          "title": { "type": "string" }
+        },
+        "required": ["text", "service", "errorType", "messagePattern", "message", "stack", "traceId", "around", "repo", "repoAllowed", "ref", "lokiQuery", "title"]
+      }
+    },
+    {
+      "name": "prepare",
+      "title": "Pick the error's branch",
+      "description": "Gives the error's deterministic branch, dittoly/fix-<fingerprint>, and the branch its last attempt used, to look up its merge request.",
+      "effect": "read",
+      "credentials": [],
+      "input": {
+        "type": "object",
+        "properties": {
+          "fingerprint": { "type": "string", "pattern": "^[A-Za-z0-9_-]{4,128}$" },
+          "existing": { "type": "object" }
+        },
+        "required": ["fingerprint", "existing"],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": { "fingerprint": { "type": "string" }, "base": { "type": "string" }, "branch": { "type": "string" } },
+        "required": ["fingerprint", "base", "branch"]
+      }
+    },
+    {
+      "name": "decide",
+      "title": "Decide what to do with an error",
+      "description": "The no-repeat rules: comment on an open merge request at most once per period, only count after a recent failure or a not-a-bug verdict, attempt again after a merge or close, and stop at the daily cap of new merge requests.",
+      "effect": "read",
+      "credentials": [],
+      "input": {
+        "type": "object",
+        "properties": {
+          "base": { "type": "string", "pattern": "^dittoly/fix-[a-z0-9-]{4,64}$" },
+          "branch": { "type": "string", "pattern": "^dittoly/fix-[a-z0-9-]{4,64}$" },
+          "existing": { "type": "object" },
+          "mr": { "type": "object" },
+          "recent": { "type": "array", "maxItems": 500, "items": { "type": "object" } },
+          "now": { "type": "string", "maxLength": 40 },
+          "repoAllowed": { "type": "boolean" },
+          "logSource": { "type": "string", "enum": ["datadog", "loki", "none"] },
+          "dailyCap": { "type": "integer", "minimum": 1, "maximum": 50, "default": 5 },
+          "retryAfterHours": { "type": "integer", "minimum": 1, "maximum": 720, "default": 24 },
+          "commentEveryHours": { "type": "integer", "minimum": 1, "maximum": 720, "default": 24 },
+          "staleFixingHours": { "type": "integer", "minimum": 1, "maximum": 48, "default": 6 }
+        },
+        "required": ["base", "existing", "mr", "recent", "repoAllowed", "logSource"],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "decision": { "type": "string", "enum": ["attempt", "comment_open_mr", "mr_open_commented_recently", "fix_in_progress", "failed_recently", "not_a_bug", "daily_cap_reached", "repo_not_allowed"] },
+          "attempt": { "type": "boolean" },
+          "comment": { "type": "boolean" },
+          "countOnly": { "type": "boolean" },
+          "fetchDatadog": { "type": "boolean" },
+          "fetchLoki": { "type": "boolean" },
+          "status": { "type": "string" },
+          "timesSeen": { "type": "integer" },
+          "firstSeen": { "type": "string" },
+          "now": { "type": "string" },
+          "attempts": { "type": "integer" },
+          "branch": { "type": "string" },
+          "lastAttempt": { "type": "string" },
+          "lastCommentAt": { "type": "string" },
+          "mrUrl": { "type": "string" },
+          "mrIid": { "type": ["integer", "null"] },
+          "mrNumber": { "type": ["integer", "null"] },
+          "previousMrUrl": { "type": "string" },
+          "mrsLast24h": { "type": "integer" },
+          "commentText": { "type": "string" }
+        },
+        "required": ["decision", "attempt", "comment", "countOnly", "fetchDatadog", "fetchLoki", "status", "timesSeen", "firstSeen", "now", "attempts", "branch", "mrUrl", "mrIid", "previousMrUrl", "mrsLast24h", "commentText"]
+      }
+    },
+    {
+      "name": "verdict",
+      "title": "Read the AI triage",
+      "description": "Reads the triage step's JSON answer ({ verdict: bug | noise, confidence, evidence, reason }): go on only for a bug with evidence and enough confidence; noise is recorded as not a bug.",
+      "effect": "read",
+      "credentials": [],
+      "input": {
+        "type": "object",
+        "properties": {
+          "triage": { "type": "string", "maxLength": 20000 },
+          "minConfidence": { "type": "integer", "minimum": 0, "maximum": 100, "default": 60 }
+        },
+        "required": ["triage"],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "proceed": { "type": "boolean" },
+          "stop": { "type": "boolean" },
+          "status": { "type": "string", "enum": ["", "not_a_bug", "failed"] },
+          "isBug": { "type": "boolean" },
+          "confidence": { "type": "integer" },
+          "evidence": { "type": "array", "items": { "type": "string" } },
+          "reason": { "type": "string" },
+          "note": { "type": "string" }
+        },
+        "required": ["proceed", "stop", "status", "isBug", "confidence", "evidence", "reason", "note"]
+      }
+    },
+    {
+      "name": "gate",
+      "title": "Check a fix before pushing",
+      "description": "Pushes only a verified fix (build passes, the bug shown before by a failing regression test or reproduce command and gone after, tests pass) within limits (or, with askOutsideLimits, for a person to sign off), says if the push waits for a person, and writes the merge request's text.",
+      "effect": "read",
+      "credentials": [],
+      "input": {
+        "type": "object",
+        "properties": {
+          "fix": { "type": "object" },
+          "fingerprint": { "type": "string", "maxLength": 128 },
+          "service": { "type": "string", "maxLength": 100 },
+          "errorType": { "type": "string", "maxLength": 200 },
+          "message": { "type": "string", "maxLength": 20000 },
+          "title": { "type": "string", "maxLength": 300 },
+          "traceId": { "type": "string", "maxLength": 64 },
+          "previousMrUrl": { "type": "string", "maxLength": 500 },
+          "timesSeen": { "type": "integer", "minimum": 0 },
+          "evidence": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 1000 } },
+          "askOutsideLimits": { "type": "boolean", "default": false }
+        },
+        "required": ["fix", "fingerprint"],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "push": { "type": "boolean" },
+          "recordFailed": { "type": "boolean" },
+          "needsSignOff": { "type": "boolean" },
+          "signOffNote": { "type": "string" },
+          "status": { "type": "string" },
+          "failureReason": { "type": "string" },
+          "title": { "type": "string" },
+          "commitMessage": { "type": "string" },
+          "description": { "type": "string" },
+          "labels": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["push", "recordFailed", "status", "failureReason", "title", "commitMessage", "description", "labels"]
+      }
+    }
+  ]
+}

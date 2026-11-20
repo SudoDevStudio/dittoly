@@ -1,0 +1,219 @@
+[
+  {
+    "name": "reads a firing Grafana alert",
+    "action": "from_grafana",
+    "input": {
+      "alert": {
+        "status": "firing",
+        "labels": {
+          "alertname": "Storefront errors",
+          "service_name": "storefront",
+          "repo": "your-org/your-app"
+        },
+        "annotations": {
+          "summary": "Errors in storefront"
+        },
+        "startsAt": "2026-10-20T10:14:00Z",
+        "fingerprint": "c6eadffa33fcdf37"
+      }
+    },
+    "http": []
+  },
+  {
+    "name": "refuses an alert without a service label",
+    "action": "from_grafana",
+    "input": {
+      "alert": {
+        "status": "firing",
+        "labels": {
+          "alertname": "x"
+        }
+      }
+    },
+    "http": [],
+    "expectOk": false
+  },
+  {
+    "name": "refuses a resolved alert",
+    "action": "from_grafana",
+    "input": {
+      "alert": {
+        "status": "resolved",
+        "labels": {
+          "service_name": "storefront",
+          "repo": "your-org/your-app"
+        }
+      }
+    },
+    "http": [],
+    "expectOk": false
+  },
+  {
+    "name": "picks the newest error with a stack from pino and winston lines",
+    "action": "pick_error",
+    "input": {
+      "lines": [
+        {
+          "timestamp": "2026-10-20T10:14:59Z",
+          "labels": {},
+          "line": "{\"level\":30,\"msg\":\"GET /health 200\"}",
+          "traceId": ""
+        },
+        {
+          "timestamp": "2026-10-20T10:14:58Z",
+          "labels": {},
+          "line": "{\"level\":50,\"time\":1792491298120,\"service\":\"storefront\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"commit\":\"3f9a2c1d\",\"err\":{\"type\":\"TypeError\",\"message\":\"Cannot read properties of undefined (reading 'reduce')\",\"stack\":\"TypeError: Cannot read properties of undefined (reading 'reduce')\\n    at total (file:///usr/src/app/src/cart.js:1:43)\\n    at async checkout (/usr/src/app/src/api.js:12:9)\\n    at Layer.handle (/usr/src/app/node_modules/express/lib/router/layer.js:95:5)\\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\"},\"msg\":\"request failed\"}",
+          "traceId": ""
+        },
+        {
+          "timestamp": "2026-10-20T10:14:50Z",
+          "labels": {},
+          "line": "{\"level\":\"error\",\"message\":\"Unknown discount code save10\",\"stack\":\"RangeError: Unknown discount code save10\\n    at apply (/app/src/discount.js:4:31)\",\"service\":\"storefront\"}",
+          "traceId": ""
+        }
+      ],
+      "fallbackMessage": "Errors in storefront"
+    },
+    "http": []
+  },
+  {
+    "name": "falls back to the alert's summary when no error line is found",
+    "action": "pick_error",
+    "input": {
+      "lines": [],
+      "fallbackMessage": "Errors in storefront"
+    },
+    "http": []
+  },
+  {
+    "name": "refuses a test folder outside the repository",
+    "action": "pick_error",
+    "input": {
+      "lines": [],
+      "testDirs": [
+        "../"
+      ]
+    },
+    "http": [],
+    "expectOk": false
+  },
+  {
+    "name": "finds the error in one posted log entry",
+    "action": "find_error",
+    "input": {
+      "payload": {
+        "timestamp": "2026-10-23T02:20:01.025Z",
+        "service": "node-api",
+        "level": "error",
+        "message": "Simulated internal server error",
+        "requestId": "b8474dab-12c1-42bd-b4cd-3c20f21c7bdd",
+        "method": "GET",
+        "path": "/users",
+        "status": 500,
+        "durationMs": 0.32,
+        "error": {
+          "name": "HttpError",
+          "message": "Simulated internal server error",
+          "stack": "HttpError: Simulated internal server error\n    at Server.<anonymous> (file:///app/src/app.js:102:15)\n    at Server.emit (node:events:514:28)\n    at parserOnIncoming (node:_http_server:1293:12)"
+        }
+      },
+      "defaultRepo": "your-org/your-app"
+    },
+    "http": []
+  },
+  {
+    "name": "finds the error in a list of errors and in a stack trace as text",
+    "action": "find_error",
+    "input": {
+      "payload": {
+        "eventId": "e1",
+        "summary": "2 errors",
+        "errors": [
+          {
+            "message": "Cannot read properties of undefined (reading 'id')",
+            "count": 3
+          },
+          {
+            "text": "TypeError: x is not a function\n    at handler (/usr/src/app/src/routes/users.js:12:3)"
+          }
+        ]
+      },
+      "defaultService": "node-api",
+      "defaultRepo": "your-org/your-app"
+    },
+    "http": []
+  },
+  {
+    "name": "asks for Loki after a Grafana webhook",
+    "action": "find_error",
+    "input": {
+      "payload": {
+        "alerts": [
+          {
+            "status": "firing",
+            "labels": {
+              "service_name": "storefront",
+              "repo": "your-org/your-app"
+            },
+            "annotations": {
+              "summary": "Errors"
+            }
+          }
+        ]
+      }
+    },
+    "http": []
+  },
+  {
+    "name": "asks the AI when nothing looks like an error",
+    "action": "find_error",
+    "input": {
+      "payload": {
+        "hello": "world"
+      }
+    },
+    "http": []
+  },
+  {
+    "name": "takes the AI's answer when the payload had no recognisable error",
+    "action": "choose",
+    "input": {
+      "found": {
+        "found": false,
+        "needsLogs": false,
+        "needsAi": true,
+        "service": "",
+        "repo": "",
+        "time": "2026-10-23T02:20:01.025Z",
+        "evidence": "{}"
+      },
+      "picked": null,
+      "logs": null,
+      "ai": {
+        "text": "{\"found\": true, \"message\": \"Boom\", \"stack\": \"Error: Boom\\n    at run (/app/src/job.js:4:9)\", \"service\": \"worker\"}"
+      },
+      "defaultRepo": "your-org/your-app"
+    },
+    "http": []
+  },
+  {
+    "name": "refuses when neither the payload nor the AI found an error",
+    "action": "choose",
+    "input": {
+      "found": {
+        "found": false,
+        "needsLogs": false,
+        "needsAi": true
+      },
+      "picked": null,
+      "logs": null,
+      "ai": {
+        "text": "{\"found\": false}"
+      },
+      "defaultRepo": "your-org/your-app",
+      "defaultService": "node-api"
+    },
+    "http": [],
+    "expectOk": false
+  }
+]

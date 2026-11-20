@@ -1,0 +1,38 @@
+# Run Dittoly on your machine with `npm start`; Docker provides these two services.
+# Uses the same service and volume names as docker-compose.yml to retain existing data.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+      # DITTOLY_COMPOSE_DB / DITTOLY_COMPOSE_MQ_USER (in .env): the database and RabbitMQ user names (default dittoly).
+      POSTGRES_DB: ${DITTOLY_COMPOSE_DB:-dittoly}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/create-test-db.sql:/docker-entrypoint-initdb.d/create-test-db.sql:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "${DITTOLY_COMPOSE_DB:-dittoly}"]
+      interval: 2s
+      retries: 30
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:4.2-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${DITTOLY_COMPOSE_MQ_USER:-dittoly}
+      RABBITMQ_DEFAULT_PASS: ${DITTOLY_COMPOSE_MQ_USER:-dittoly}
+    ports:
+      - "127.0.0.1:5672:5672"
+    volumes:
+      - rabbitmq:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 5s
+      retries: 30
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  rabbitmq:

@@ -1,0 +1,12 @@
+# Every change needs the owner's review (with "Require review from Code Owners" on in the main branch ruleset).
+* @SudoDevStudio
+
+# Called out so they stand out in reviews: what CI runs, what isolates untrusted code, and what guards access.
+/.github/                 @SudoDevStudio
+/sandbox-runtime/         @SudoDevStudio
+/src/sandbox/             @SudoDevStudio
+/src/core/                @SudoDevStudio
+/src/governance/          @SudoDevStudio
+/src/db/migrations/       @SudoDevStudio
+/Dockerfile               @SudoDevStudio
+/docker-compose*.yml      @SudoDevStudio

@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "/app/main.py", line 4, in <module>
+    handle({"items": [{"price": 2}]})
+    ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/main.py", line 3, in handle
+    return total(order["items"])
+  File "/app/shop/cart.py", line 2, in total
+    return sum(i["price"] * i["qty"] for i in items)
+  File "/app/shop/cart.py", line 2, in <genexpr>
+    return sum(i["price"] * i["qty"] for i in items)
+                            ~^^^^^^^
+KeyError: 'qty'

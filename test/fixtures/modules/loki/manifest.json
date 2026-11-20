@@ -1,0 +1,83 @@
+{
+  "name": "loki",
+  "version": "1.0.0",
+  "title": "Loki logs",
+  "description": "Runs a LogQL log query over a time window on Grafana Loki (read only) and returns a compact list of log lines. Works without a key on a Loki that has no authentication; a stored Loki user and token (Grafana Cloud: instance id and access policy token) is sent when you have one.",
+  "settings": [
+    {
+      "id": "site",
+      "type": "host",
+      "label": "Loki host (Grafana Cloud: logs-prod-<n>.grafana.net)",
+      "help": "Your Loki host. For Grafana Cloud, the Logs URL host from your stack's details page, without https://.",
+      "example": "logs-prod-006.grafana.net",
+      "pattern": "*.grafana.net",
+      "default": "logs-prod-006.grafana.net"
+    },
+    {
+      "id": "tenant",
+      "type": "text",
+      "label": "Tenant (X-Scope-OrgID) for a multi-tenant Loki; empty for none",
+      "help": "For a multi-tenant Loki, the tenant id sent as X-Scope-OrgID. Leave empty for Grafana Cloud or a single-tenant Loki.",
+      "example": "team-a",
+      "default": ""
+    }
+  ],
+  "hosts": ["{{settings.site}}"],
+  "credentials": [
+    {
+      "id": "loki_login",
+      "service": "loki",
+      "label": "Loki user and token (user:token)",
+      "hosts": ["{{settings.site}}"],
+      "placement": { "type": "basic" },
+      "optional": true
+    }
+  ],
+  "actions": [
+    {
+      "name": "query_logs",
+      "title": "Query logs",
+      "description": "Runs a LogQL log query (query_range) for a window around a time, or between start and end, and returns the newest lines first, trimmed. Metric queries are refused.",
+      "effect": "read",
+      "credentials": ["loki_login"],
+      "input": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "minLength": 3, "maxLength": 2000, "pattern": "^\\{[^\\r\\n]*$" },
+          "around": { "type": "string", "maxLength": 40, "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]{5,15}(Z|[+-][0-9]{2}:[0-9]{2})$" },
+          "windowMinutes": { "type": "integer", "minimum": 1, "maximum": 1440, "default": 15 },
+          "start": { "type": "string", "maxLength": 40, "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]{5,15}(Z|[+-][0-9]{2}:[0-9]{2})$" },
+          "end": { "type": "string", "maxLength": 40, "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]{5,15}(Z|[+-][0-9]{2}:[0-9]{2})$" },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 200, "default": 50 },
+          "direction": { "type": "string", "enum": ["backward", "forward"], "default": "backward" },
+          "lineChars": { "type": "integer", "minimum": 100, "maximum": 4000, "default": 1000 },
+          "digestChars": { "type": "integer", "minimum": 500, "maximum": 9500, "default": 8000 }
+        },
+        "required": ["query"],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "timestamp": { "type": "string" },
+                "labels": { "type": "object", "additionalProperties": { "type": "string" } },
+                "line": { "type": "string" },
+                "traceId": { "type": "string" }
+              },
+              "required": ["timestamp", "labels", "line", "traceId"]
+            }
+          },
+          "count": { "type": "integer" },
+          "truncated": { "type": "boolean" },
+          "digest": { "type": "string" }
+        },
+        "required": ["lines", "count", "truncated", "digest"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "name": "dty-test-stdio-mcp",
+  "version": "1.0.0",
+  "description": "Test fixture: a dependency-free stdio MCP server.",
+  "type": "module",
+  "bin": { "dty-test-stdio-mcp": "server.mjs" },
+  "files": ["server.mjs"]
+}

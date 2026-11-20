@@ -1,0 +1,43 @@
+name: Toolchains
+
+# The fix step for each language in real containers (test/toolchains-docker.test.ts): install, build,
+# the bug shown by a regression test, the fix verified. Runs on pull requests that change the sandbox
+# or the toolchains, and monthly, since the images move under their tags. One job for all of them:
+# GitHub bills each job by the started minute, plus its own setup.
+on:
+  pull_request:
+    paths:
+      - src/engine/apps.ts
+      - src/engine/fix.ts
+      - src/engine/fix-limits.ts
+      - src/mcp/stdio.ts
+      - sandbox-runtime/**
+      - test/fixtures/flows/toolchains.json
+      - test/fixtures/toolchains/**
+      - test/toolchains-docker.test.ts
+      - .github/workflows/toolchains.yml
+  schedule:
+    - cron: '17 4 1 * *'
+  workflow_dispatch:
+
+concurrency:
+  group: toolchains-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  toolchains:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run test/toolchains-docker.test.ts
+        env:
+          DTY_TOOLCHAINS: all

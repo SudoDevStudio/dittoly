@@ -1,0 +1,454 @@
+{
+  "name": "node-errors",
+  "version": "1.1.0",
+  "title": "Node.js errors from any payload, Grafana and Loki",
+  "description": "No network access: finds the error in whatever a sender posts (a log entry from pino, winston or bunyan, log lines, a stack trace, a list of errors, a Grafana alert), reads one Grafana alert (service, time, repository, commit), picks the newest Node.js error from Loki log lines, and combines what was found (or what the AI answered) into one error, with its stack trace rewritten to repository paths and the app files a fix may change. Needs no key: it calls no app.",
+  "hosts": [],
+  "credentials": [],
+  "actions": [
+    {
+      "name": "find_error",
+      "title": "Find the error in any payload",
+      "effect": "read",
+      "credentials": [],
+      "description": "Searches whatever was posted for the error: log entries (pino, winston, bunyan, any object with a message, error or stack), Loki entries, JSON in strings, stack-trace text, lists such as errors[]. A Grafana alert sets needsLogs; nothing found sets needsAi.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "payload": {
+            "description": "Anything: JSON of any shape, or text"
+          },
+          "lokiQuery": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "defaultRepo": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "defaultService": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "containerRoots": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "pattern": "^/[A-Za-z0-9_./-]{0,200}$"
+            }
+          },
+          "testDirs": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9_.-]*(/[A-Za-z0-9_-][A-Za-z0-9_.-]*)*/$"
+            }
+          },
+          "fallbackFiles": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9_.-]*(/[A-Za-z0-9_-][A-Za-z0-9_.-]*)*/?$"
+            }
+          }
+        },
+        "required": [
+          "payload"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "found": {
+            "type": "boolean"
+          },
+          "needsLogs": {
+            "type": "boolean"
+          },
+          "needsAi": {
+            "type": "boolean"
+          },
+          "service": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "repo": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "time": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "lokiQuery": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "evidence": {
+            "type": "string",
+            "maxLength": 8000
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "stack": {
+            "type": "string",
+            "maxLength": 50000
+          },
+          "traceId": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "commit": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "appFiles": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "maxLength": 300
+            }
+          },
+          "onlyFilesIn": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "maxLength": 300
+            }
+          },
+          "errorLines": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "found",
+          "needsLogs",
+          "needsAi",
+          "service",
+          "repo",
+          "time",
+          "message",
+          "stack",
+          "appFiles",
+          "onlyFilesIn",
+          "evidence"
+        ]
+      }
+    },
+    {
+      "name": "choose",
+      "title": "Combine what was found",
+      "effect": "read",
+      "credentials": [],
+      "description": "The one error to fix, from the payload, from Loki after a Grafana alert, or from the AI's JSON answer. A step skipped by its condition passes null. Refuses when no error, service or repository is found.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "found": {
+            "type": "object"
+          },
+          "picked": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "logs": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "ai": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "defaultRepo": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "defaultService": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "containerRoots": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "pattern": "^/[A-Za-z0-9_./-]{0,200}$"
+            }
+          },
+          "testDirs": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9_.-]*(/[A-Za-z0-9_-][A-Za-z0-9_.-]*)*/$"
+            }
+          },
+          "fallbackFiles": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9_.-]*(/[A-Za-z0-9_-][A-Za-z0-9_.-]*)*/?$"
+            }
+          }
+        },
+        "required": [
+          "found"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "service": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "repo": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "time": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "evidence": {
+            "type": "string",
+            "maxLength": 8000
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "payload",
+              "loki",
+              "ai"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "stack": {
+            "type": "string",
+            "maxLength": 50000
+          },
+          "traceId": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "commit": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "appFiles": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "maxLength": 300
+            }
+          },
+          "onlyFilesIn": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "maxLength": 300
+            }
+          },
+          "errorLines": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "service",
+          "repo",
+          "time",
+          "message",
+          "stack",
+          "appFiles",
+          "onlyFilesIn",
+          "evidence",
+          "source"
+        ]
+      }
+    },
+    {
+      "name": "from_grafana",
+      "title": "Read a Grafana alert",
+      "description": "Reads one firing alert of a Grafana webhook (alerts[0]; a resolved one is refused): the service (service_name, service, app or job label), repository (repo label or the default), commit, start time, summary, and the Loki query for the service's errors.",
+      "effect": "read",
+      "credentials": [],
+      "input": {
+        "type": "object",
+        "properties": {
+          "alert": {
+            "type": "object"
+          },
+          "defaultRepo": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "lokiQuery": {
+            "type": "string",
+            "maxLength": 1000,
+            "pattern": "^\\{[^\\r\\n]*$"
+          }
+        },
+        "required": [
+          "alert"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "service": {
+            "type": "string"
+          },
+          "repo": {
+            "type": "string"
+          },
+          "commit": {
+            "type": "string"
+          },
+          "time": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "lokiQuery": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "service",
+          "repo",
+          "commit",
+          "time",
+          "summary",
+          "lokiQuery"
+        ]
+      }
+    },
+    {
+      "name": "pick_error",
+      "title": "Pick the Node.js error",
+      "description": "From log lines (newest first), picks the newest error with a stack trace, else the newest error. Rewrites the stack to repository paths (file:// and the container's app folder removed) and lists the app's own files in it, plus the test folders a fix may change.",
+      "effect": "read",
+      "credentials": [],
+      "input": {
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "type": "object"
+            }
+          },
+          "fallbackMessage": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "alertCommit": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "containerRoots": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "pattern": "^/[A-Za-z0-9_./-]{0,200}$"
+            }
+          },
+          "testDirs": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9_.-]*(/[A-Za-z0-9_-][A-Za-z0-9_.-]*)*/$"
+            }
+          },
+          "fallbackFiles": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-][A-Za-z0-9_.-]*(/[A-Za-z0-9_-][A-Za-z0-9_.-]*)*/?$"
+            }
+          }
+        },
+        "required": [
+          "lines"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "found": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "stack": {
+            "type": "string"
+          },
+          "traceId": {
+            "type": "string"
+          },
+          "commit": {
+            "type": "string"
+          },
+          "appFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "onlyFilesIn": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errorLines": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "found",
+          "message",
+          "stack",
+          "traceId",
+          "commit",
+          "appFiles",
+          "onlyFilesIn",
+          "errorLines"
+        ]
+      }
+    }
+  ]
+}

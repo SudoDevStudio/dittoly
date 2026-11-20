@@ -1,0 +1,167 @@
+[
+  {
+    "name": "reads error lines around an alert, newest first",
+    "action": "query_logs",
+    "input": {
+      "query": "{service_name=\"checkout\"} |~ \"(?i)error\"",
+      "around": "2026-10-20T10:15:00Z",
+      "windowMinutes": 10,
+      "limit": 3
+    },
+    "http": [
+      {
+        "method": "GET",
+        "urlPrefix": "http://192.168.1.20:3100/loki/api/v1/query_range?query=",
+        "json": {
+          "status": "success",
+          "data": {
+            "resultType": "streams",
+            "result": [
+              {
+                "stream": {
+                  "service_name": "checkout",
+                  "level": "error",
+                  "pod": "checkout-7d9f-abcde"
+                },
+                "values": [
+                  [
+                    "1792491298120000000",
+                    "level=error msg=\"TypeError: Cannot read properties of undefined (reading 'total')\" trace_id=5719283746501928374"
+                  ],
+                  [
+                    "1792491291004000000",
+                    "level=error msg=\"upstream timeout\""
+                  ]
+                ]
+              },
+              {
+                "stream": {
+                  "service_name": "checkout",
+                  "level": "error",
+                  "trace_id": "abcdef0123456789"
+                },
+                "values": [
+                  [
+                    "1792491295000000000",
+                    "{\"level\":\"error\",\"message\":\"payment declined handler crashed\"}"
+                  ]
+                ]
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "reads a Node (pino) JSON error line from a self-hosted Loki over http",
+    "action": "query_logs",
+    "input": {
+      "query": "{service_name=\"storefront\"} |~ \"(?i)(error|exception|\\\"level\\\":(50|60))\"",
+      "around": "2026-10-20T10:15:00Z",
+      "windowMinutes": 10,
+      "limit": 20,
+      "lineChars": 4000
+    },
+    "withoutCredentials": true,
+    "http": [
+      {
+        "method": "GET",
+        "urlPrefix": "http://192.168.1.20:3100/loki/api/v1/query_range?query=",
+        "json": {
+          "status": "success",
+          "data": {
+            "resultType": "streams",
+            "result": [
+              {
+                "stream": {
+                  "service_name": "storefront",
+                  "container": "storefront-1"
+                },
+                "values": [
+                  [
+                    "1792491298120000000",
+                    "{\"level\":50,\"time\":1792491298120,\"pid\":1,\"hostname\":\"web-1\",\"service\":\"storefront\",\"reqId\":\"req-41\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\",\"err\":{\"type\":\"TypeError\",\"message\":\"Cannot read properties of undefined (reading 'reduce')\",\"stack\":\"TypeError: Cannot read properties of undefined (reading 'reduce')\\n    at total (file:///usr/src/app/src/cart.js:1:43)\\n    at async checkout (/usr/src/app/src/api.js:12:9)\"},\"msg\":\"request failed\"}"
+                  ]
+                ]
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "works without a stored login on an open Loki",
+    "action": "query_logs",
+    "input": {
+      "query": "{app=\"checkout\"}",
+      "start": "2026-10-20T10:00:00Z",
+      "end": "2026-10-20T10:30:00Z",
+      "direction": "forward"
+    },
+    "withoutCredentials": true,
+    "http": [
+      {
+        "method": "GET",
+        "urlPrefix": "http://192.168.1.20:3100/loki/api/v1/query_range?query=",
+        "json": {
+          "status": "success",
+          "data": {
+            "resultType": "streams",
+            "result": []
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "refuses a metric query",
+    "action": "query_logs",
+    "input": {
+      "query": "{app=\"checkout\"}",
+      "around": "2026-10-20T10:15:00Z"
+    },
+    "http": [
+      {
+        "method": "GET",
+        "urlPrefix": "http://192.168.1.20:3100/loki/api/v1/query_range?query=",
+        "json": {
+          "status": "success",
+          "data": {
+            "resultType": "matrix",
+            "result": []
+          }
+        }
+      }
+    ],
+    "expectOk": false
+  },
+  {
+    "name": "refuses text that is not a LogQL selector",
+    "action": "query_logs",
+    "input": {
+      "query": "rate({app=\"checkout\"}[5m])"
+    },
+    "expectOk": false
+  },
+  {
+    "name": "says a login is needed when Loki refuses",
+    "action": "query_logs",
+    "input": {
+      "query": "{app=\"checkout\"}"
+    },
+    "withoutCredentials": true,
+    "http": [
+      {
+        "method": "GET",
+        "urlPrefix": "http://192.168.1.20:3100/loki/api/v1/query_range?query=",
+        "status": 401,
+        "json": {
+          "message": "unauthorized"
+        }
+      }
+    ],
+    "expectOk": false
+  }
+]

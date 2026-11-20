@@ -1,0 +1,99 @@
+{
+  "name": "Release coordination",
+  "definition": {
+    "description": "Gather approved Jira tickets, merge ready MRs after sign-off, notify the channel.",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "release": {
+          "type": "string",
+          "minLength": 1
+        },
+        "jql": {
+          "type": "string",
+          "minLength": 1
+        },
+        "project": {
+          "type": "string",
+          "minLength": 1
+        },
+        "channel": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "release",
+        "jql",
+        "project",
+        "channel"
+      ],
+      "additionalProperties": false
+    },
+    "retry": {
+      "manualRetryLimit": 3
+    },
+    "moduleSettings": {
+      "jira": {
+        "site": "example.atlassian.net"
+      }
+    },
+    "steps": [
+      {
+        "id": "tickets",
+        "title": "Find approved tickets",
+        "type": "action",
+        "module": "jira@1.1.0",
+        "action": "search_issues",
+        "input": {
+          "jql": "{{ inputs.jql }}"
+        }
+      },
+      {
+        "id": "mrs",
+        "title": "Find ready merge requests",
+        "type": "action",
+        "module": "gitlab@1.0.0",
+        "action": "list_merge_requests",
+        "input": {
+          "project": "{{ inputs.project }}",
+          "label": "ready"
+        }
+      },
+      {
+        "id": "signoff",
+        "title": "Release manager sign-off",
+        "type": "approval",
+        "when": {
+          "notEmpty": "steps.mrs.output.mergeRequests"
+        }
+      },
+      {
+        "id": "merge",
+        "title": "Merge each ready MR",
+        "type": "action",
+        "module": "gitlab@1.0.0",
+        "action": "merge_merge_request",
+        "forEach": "{{ steps.mrs.output.mergeRequests }}",
+        "input": {
+          "project": "{{ inputs.project }}",
+          "iid": "{{ item.iid }}"
+        },
+        "when": {
+          "notEmpty": "steps.mrs.output.mergeRequests"
+        }
+      },
+      {
+        "id": "announce",
+        "title": "Tell the channel",
+        "type": "action",
+        "module": "slack@1.0.0",
+        "action": "post_message",
+        "input": {
+          "channel": "{{ inputs.channel }}",
+          "text": "Release {{ inputs.release }}: {{ steps.tickets.output.issues.length }} approved tickets, {{ steps.mrs.output.mergeRequests.length }} merge requests merged."
+        }
+      }
+    ]
+  }
+}

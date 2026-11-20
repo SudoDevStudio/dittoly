@@ -1,0 +1,181 @@
+{
+  "name": "jira-triage",
+  "version": "1.0.0",
+  "title": "Jira triage",
+  "description": "Reads a Jira Cloud issue and reports back on it: comments (with screenshots attached) and labels, on your organization's site. Needs your Jira email and API token: Jira has no public access.",
+  "hosts": [
+    "{{settings.site}}"
+  ],
+  "settings": [
+    {
+      "id": "site",
+      "type": "host",
+      "label": "Your Jira Cloud site",
+      "help": "The address of your Jira Cloud site, as in your browser's address bar, without https://.",
+      "example": "acme.atlassian.net",
+      "pattern": "*.atlassian.net",
+      "default": "example.atlassian.net"
+    }
+  ],
+  "credentials": [
+    {
+      "id": "jira_api_token",
+      "service": "jira",
+      "label": "Jira email and API token (email:token)",
+      "hosts": [
+        "{{settings.site}}"
+      ],
+      "placement": {
+        "type": "basic"
+      }
+    }
+  ],
+  "actions": [
+    {
+      "name": "get_issue",
+      "title": "Read an issue",
+      "description": "Returns an issue's summary, description (as text), status and link.",
+      "effect": "read",
+      "credentials": [
+        "jira_api_token"
+      ],
+      "input": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]+-[0-9]+$"
+          }
+        },
+        "required": [
+          "key"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "summary",
+          "description",
+          "status",
+          "url"
+        ]
+      }
+    },
+    {
+      "name": "comment_issue",
+      "title": "Comment on an issue",
+      "description": "Adds a comment in Jira text formatting; screenshots are attached to the issue and shown in the comment.",
+      "effect": "write",
+      "credentials": [
+        "jira_api_token"
+      ],
+      "input": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]+-[0-9]+$"
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 30000
+          },
+          "screenshots": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "pattern": "^data:image/(jpeg|png);base64,"
+            }
+          }
+        },
+        "required": [
+          "key",
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "commentId": {
+            "type": "string"
+          },
+          "attachments": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "commentId",
+          "attachments"
+        ]
+      }
+    },
+    {
+      "name": "add_labels",
+      "title": "Add labels",
+      "description": "Adds labels to an issue, e.g. triage-fix-pending.",
+      "effect": "write",
+      "credentials": [
+        "jira_api_token"
+      ],
+      "input": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]+-[0-9]+$"
+          },
+          "labels": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "pattern": "^[^\\s]{1,255}$"
+            }
+          }
+        },
+        "required": [
+          "key",
+          "labels"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "labels"
+        ]
+      }
+    }
+  ]
+}

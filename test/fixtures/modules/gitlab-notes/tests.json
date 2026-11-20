@@ -1,0 +1,31 @@
+[
+  {
+    "name": "comments with a screenshot",
+    "action": "comment",
+    "input": {
+      "project": "acme/app",
+      "kind": "merge_request",
+      "iid": 7,
+      "body": "### Triage complete",
+      "screenshots": [
+        "data:image/png;base64,iVBORw0KGgo="
+      ]
+    },
+    "http": [
+      {
+        "method": "POST",
+        "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fapp/uploads",
+        "json": {
+          "markdown": "![screenshot-1](/uploads/abc/screenshot-1.png)"
+        }
+      },
+      {
+        "method": "POST",
+        "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fapp/merge_requests/7/notes",
+        "json": {
+          "id": 55
+        }
+      }
+    ]
+  }
+]

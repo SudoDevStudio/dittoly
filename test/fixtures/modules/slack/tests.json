@@ -1,0 +1,39 @@
+[
+  {
+    "name": "posts a message",
+    "action": "post_message",
+    "input": {
+      "channel": "C123",
+      "text": "Release 2.4 is out"
+    },
+    "http": [
+      {
+        "method": "POST",
+        "urlPrefix": "https://slack.com/api/chat.postMessage",
+        "json": {
+          "ok": true,
+          "ts": "1700000000.000100"
+        }
+      }
+    ]
+  },
+  {
+    "name": "deletes a message",
+    "action": "delete_message",
+    "input": {
+      "channel": "C123",
+      "ts": "1700000000.000100"
+    },
+    "http": [
+      {
+        "method": "POST",
+        "urlPrefix": "https://slack.com/api/chat.delete",
+        "json": {
+          "ok": true,
+          "channel": "C123",
+          "ts": "1700000000.000100"
+        }
+      }
+    ]
+  }
+]

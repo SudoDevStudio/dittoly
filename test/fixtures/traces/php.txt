@@ -1,0 +1,9 @@
+[28-Oct-2026 15:05:51 UTC] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /var/www/html/src/Cart.php:5
+Stack trace:
+#0 /var/www/html/src/Cart.php(5): intdiv(1, 0)
+#1 [internal function]: Acme\Shop\Cart::{closure:Acme\Shop\Cart::total():5}(Array)
+#2 /var/www/html/src/Cart.php(5): array_map(Object(Closure), Array)
+#3 /var/www/html/index.php(3): Acme\Shop\Cart::total(Array)
+#4 /var/www/html/index.php(4): handle(Array)
+#5 {main}
+  thrown in /var/www/html/src/Cart.php on line 5

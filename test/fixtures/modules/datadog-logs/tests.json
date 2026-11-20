@@ -1,0 +1,82 @@
+[
+  {
+    "name": "finds error logs around an alert for one service",
+    "action": "search_errors",
+    "input": { "service": "checkout", "around": "2026-10-20T10:15:00Z", "windowMinutes": 10, "limit": 2 },
+    "http": [
+      {
+        "method": "POST",
+        "urlPrefix": "https://api.datadoghq.com/api/v2/logs/events/search",
+        "json": {
+          "data": [
+            {
+              "id": "AQAAAYexample1",
+              "type": "log",
+              "attributes": {
+                "timestamp": "2026-10-20T10:14:58.120Z",
+                "service": "checkout",
+                "status": "error",
+                "host": "web-1.example.com",
+                "message": "TypeError: Cannot read properties of undefined (reading 'total')",
+                "tags": ["env:prod", "version:4.2.1", "git.commit.sha:0123456789abcdef0123456789abcdef01234567"],
+                "attributes": {
+                  "error": { "kind": "TypeError", "stack": "TypeError: Cannot read properties of undefined (reading 'total')\n    at cartTotal (src/cart.ts:42:17)" },
+                  "dd": { "trace_id": "5719283746501928374" }
+                }
+              }
+            },
+            {
+              "id": "AQAAAYexample2",
+              "type": "log",
+              "attributes": { "timestamp": "2026-10-20T10:14:51.004Z", "service": "checkout", "status": "error", "message": "upstream timeout", "attributes": {} }
+            }
+          ],
+          "meta": { "page": { "after": "eyJhZnRlciI6ImV4YW1wbGUifQ" }, "status": "done" }
+        }
+      }
+    ]
+  },
+  {
+    "name": "reads the next page by trace id",
+    "action": "search_errors",
+    "input": { "traceId": "5719283746501928374", "status": "any", "from": "now-1h", "to": "now", "cursor": "eyJhZnRlciI6ImV4YW1wbGUifQ" },
+    "http": [
+      {
+        "method": "POST",
+        "urlPrefix": "https://api.datadoghq.com/api/v2/logs/events/search",
+        "json": {
+          "data": [
+            { "id": "AQAAAYexample3", "type": "log", "attributes": { "timestamp": "2026-10-20T10:14:40Z", "service": "payments", "status": "info", "message": "charge started", "attributes": { "trace_id": "5719283746501928374" } } }
+          ],
+          "meta": { "page": {}, "status": "done" }
+        }
+      }
+    ]
+  },
+  {
+    "name": "refuses a search with no query, service or trace id",
+    "action": "search_errors",
+    "input": { "around": "2026-10-20T10:15:00Z" },
+    "expectOk": false
+  },
+  {
+    "name": "refuses a query with a line break",
+    "action": "search_errors",
+    "input": { "query": "service:checkout\nstatus:error" },
+    "expectOk": false
+  },
+  {
+    "name": "reports a token without logs_read_data",
+    "action": "search_errors",
+    "input": { "service": "checkout" },
+    "http": [{ "method": "POST", "urlPrefix": "https://api.datadoghq.com/api/v2/logs/events/search", "status": 403, "json": { "errors": ["Forbidden"] } }],
+    "expectOk": false
+  },
+  {
+    "name": "rate limited by Datadog",
+    "action": "search_errors",
+    "input": { "service": "checkout" },
+    "http": [{ "method": "POST", "urlPrefix": "https://api.datadoghq.com/api/v2/logs/events/search", "status": 429, "json": { "errors": ["Too many requests"] } }],
+    "expectOk": false
+  }
+]

@@ -1,0 +1,99 @@
+[
+  {
+    "name": "cleans an alert into a stable fingerprint text",
+    "action": "normalize",
+    "input": {
+      "service": "checkout",
+      "message": "TypeError: Cannot read properties of undefined (reading 'total') for order 5512 user jane.doe@example.com",
+      "stack": "TypeError: Cannot read properties of undefined (reading 'total')\n    at cartTotal (/app/src/cart.ts:42:17)\n    at process (node:internal/process/task_queues:95:5)",
+      "traceId": "5719283746501928374",
+      "time": "2026-10-20T10:15:00Z",
+      "commit": "0123456789abcdef0123456789abcdef01234567",
+      "repo": "acme/shop",
+      "targetBranch": "main",
+      "allowedRepos": ["acme/shop"]
+    }
+  },
+  {
+    "name": "refuses a service name with spaces",
+    "action": "normalize",
+    "input": { "service": "check out", "message": "x", "repo": "acme/shop", "targetBranch": "main", "allowedRepos": [] },
+    "expectOk": false
+  },
+  {
+    "name": "picks the deterministic branch for a new error",
+    "action": "prepare",
+    "input": { "fingerprint": "3f9a2c1d7e5b", "existing": { "found": false, "row": null } }
+  },
+  {
+    "name": "comments on the open merge request once and stops",
+    "action": "decide",
+    "input": {
+      "base": "dittoly/fix-3f9a2c1d7e5b",
+      "branch": "dittoly/fix-3f9a2c1d7e5b",
+      "now": "2026-10-20T10:15:00Z",
+      "existing": { "found": true, "row": { "fingerprint": "3f9a2c1d7e5b", "status": "mr_open", "times_seen": 6, "attempts": 1, "branch": "dittoly/fix-3f9a2c1d7e5b", "mr_url": "https://gitlab.example.com/acme/shop/-/merge_requests/42", "mr_iid": 42, "last_comment_at": "2026-10-18T09:00:00Z" } },
+      "mr": { "found": true, "mr": { "iid": 42, "url": "https://gitlab.example.com/acme/shop/-/merge_requests/42", "state": "opened" }, "latest": { "iid": 42, "state": "opened" } },
+      "recent": [],
+      "repoAllowed": true,
+      "logSource": "datadog"
+    }
+  },
+  {
+    "name": "attempts a new fix for a new error",
+    "action": "decide",
+    "input": {
+      "base": "dittoly/fix-3f9a2c1d7e5b",
+      "existing": { "found": false, "row": null },
+      "mr": { "found": false, "mr": null, "latest": null },
+      "recent": [],
+      "repoAllowed": true,
+      "logSource": "loki"
+    }
+  },
+  {
+    "name": "refuses an unknown log source",
+    "action": "decide",
+    "input": { "base": "dittoly/fix-3f9a2c1d7e5b", "existing": {}, "mr": {}, "recent": [], "repoAllowed": true, "logSource": "splunk" },
+    "expectOk": false
+  },
+  {
+    "name": "reads a bug verdict with evidence",
+    "action": "verdict",
+    "input": { "triage": "Here is my answer:\n{\"verdict\": \"bug\", \"confidence\": 85, \"evidence\": [\"cartTotal reads .total of an undefined cart\"], \"reason\": \"null check missing\"}" }
+  },
+  {
+    "name": "treats an unreadable triage as a failed attempt",
+    "action": "verdict",
+    "input": { "triage": "I think it is probably fine." }
+  },
+  {
+    "name": "lets a verified fix through with its report",
+    "action": "gate",
+    "input": {
+      "fingerprint": "3f9a2c1d7e5b",
+      "service": "checkout",
+      "errorType": "TypeError",
+      "message": "TypeError: Cannot read properties of undefined (reading 'total')",
+      "title": "Fix TypeError in checkout",
+      "timesSeen": 3,
+      "evidence": ["cartTotal reads .total of an undefined cart"],
+      "fix": {
+        "verified": { "buildOk": true, "reproducedBefore": true, "regressionTestFailsBefore": true, "regressionTestPassesAfter": true, "reproducedAfter": false, "testsPassAfter": true },
+        "limits": { "ok": true, "violations": [] },
+        "confidence": { "score": 86, "level": "high", "reasons": ["small change", "regression test proves it"] },
+        "change": { "files": [{ "path": "src/cart.ts", "action": "update", "content": "export const total = (c) => c?.total ?? 0;\n" }], "diff": "", "filesChanged": 1, "linesAdded": 1, "linesRemoved": 1 },
+        "summary": "Guard against an empty cart.",
+        "regressionTest": "cart total of an empty cart is 0",
+        "autoPushAllowed": true,
+        "logTail": ""
+      }
+    }
+  },
+  {
+    "name": "refuses a fix that is not an object",
+    "action": "gate",
+    "input": { "fingerprint": "3f9a2c1d7e5b", "fix": "looks good to me" },
+    "expectOk": false
+  }
+]

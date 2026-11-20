@@ -1,0 +1,153 @@
+{
+  "name": "Ticket QA: plan, check, report",
+  "definition": {
+    "description": "Reads a Jira ticket, plans browser checks with AI, lets you approve them, checks the staging app, and reports to Jira and Slack.",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "issue": {
+          "type": "string",
+          "description": "Jira issue key",
+          "examples": [
+            "REL-1"
+          ]
+        },
+        "channel": {
+          "type": "string",
+          "description": "Slack channel ID for the report",
+          "examples": [
+            "C0123456789"
+          ]
+        }
+      },
+      "required": [
+        "issue",
+        "channel"
+      ]
+    },
+    "form": {
+      "intro": "Pick the ticket to check.",
+      "fields": [
+        {
+          "name": "issue",
+          "label": "Jira issue",
+          "widget": "text",
+          "placeholder": "REL-1",
+          "help": "The key of the ticket to check"
+        },
+        {
+          "name": "channel",
+          "label": "Slack channel",
+          "widget": "text",
+          "placeholder": "C0123456789"
+        }
+      ]
+    },
+    "moduleSettings": {
+      "jira-triage": {
+        "site": "example.atlassian.net"
+      }
+    },
+    "steps": [
+      {
+        "id": "issue",
+        "type": "action",
+        "title": "Read the ticket",
+        "module": "jira-triage@1.0.0",
+        "action": "get_issue",
+        "input": {
+          "key": "{{ inputs.issue }}"
+        }
+      },
+      {
+        "id": "plan",
+        "type": "ai",
+        "title": "Plan the checks",
+        "ai": "runner",
+        "provider": "openai",
+        "output": "checklist",
+        "instruction": "Write browser checks a tester can run on the staging app to confirm what this ticket describes.",
+        "input": {
+          "summary": "{{ steps.issue.output.summary }}",
+          "description": "{{ steps.issue.output.description }}"
+        }
+      },
+      {
+        "id": "approve",
+        "type": "input",
+        "title": "Approve the plan",
+        "intro": "Edit the checks if needed, then continue.",
+        "fields": [
+          {
+            "name": "checks",
+            "label": "Checks to run",
+            "widget": "checklist",
+            "required": true,
+            "default": "{{ steps.plan.output.checks }}"
+          }
+        ]
+      },
+      {
+        "id": "check",
+        "type": "browse",
+        "title": "Check the app",
+        "ai": "runner",
+        "provider": "openai",
+        "url": "https://staging.example.com/",
+        "hosts": [
+          "staging.example.com"
+        ],
+        "checks": "{{ steps.approve.output.checks }}",
+        "maxActions": 15
+      },
+      {
+        "id": "report",
+        "type": "report",
+        "title": "Write the report",
+        "heading": "Triage complete",
+        "items": "{{ steps.check.output.checks }}",
+        "link": "{{ steps.issue.output.url }}"
+      },
+      {
+        "id": "comment",
+        "type": "action",
+        "title": "Comment on the ticket",
+        "module": "jira-triage@1.0.0",
+        "action": "comment_issue",
+        "input": {
+          "key": "{{ inputs.issue }}",
+          "body": "{{ steps.report.output.jira }}",
+          "screenshots": "{{ steps.report.output.screenshots }}"
+        }
+      },
+      {
+        "id": "label",
+        "type": "action",
+        "title": "Mark it",
+        "module": "jira-triage@1.0.0",
+        "action": "add_labels",
+        "when": {
+          "isTrue": "steps.check.output.passed"
+        },
+        "input": {
+          "key": "{{ inputs.issue }}",
+          "labels": [
+            "triage-verified"
+          ]
+        }
+      },
+      {
+        "id": "slack",
+        "type": "action",
+        "title": "Tell the channel",
+        "module": "slack-files@1.0.0",
+        "action": "post",
+        "input": {
+          "channel": "{{ inputs.channel }}",
+          "text": "{{ steps.report.output.slack }}",
+          "screenshots": "{{ steps.report.output.screenshots }}"
+        }
+      }
+    ]
+  }
+}

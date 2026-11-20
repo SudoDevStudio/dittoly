@@ -1,0 +1,210 @@
+[
+  {
+    "name": "finds the open pull request of a fix branch",
+    "action": "find_open_pr_by_head",
+    "input": { "repo": "acme/shop", "branch": "dittoly/fix-3f9a2c1d7e" },
+    "http": [
+      {
+        "method": "GET",
+        "urlPrefix": "https://api.github.com/repos/acme/shop/pulls?state=all&head=acme%3Adittoly%2Ffix-3f9a2c1d7e",
+        "json": [{ "number": 12, "title": "Fix cart total", "state": "open", "draft": true, "merged_at": null, "html_url": "https://github.com/acme/shop/pull/12" }]
+      }
+    ]
+  },
+  {
+    "name": "reports a merged pull request as not open",
+    "action": "find_open_pr_by_head",
+    "input": { "repo": "acme/shop", "branch": "dittoly/fix-3f9a2c1d7e" },
+    "http": [
+      {
+        "method": "GET",
+        "urlPrefix": "https://api.github.com/repos/acme/shop/pulls",
+        "json": [{ "number": 12, "title": "Fix cart total", "state": "closed", "draft": false, "merged_at": "2026-10-19T09:00:00Z", "html_url": "https://github.com/acme/shop/pull/12" }]
+      }
+    ]
+  },
+  {
+    "name": "refuses a head that is not a dittoly fix branch",
+    "action": "find_open_pr_by_head",
+    "input": { "repo": "acme/shop", "branch": "main" },
+    "expectOk": false
+  },
+  {
+    "name": "reads a source file",
+    "action": "get_file",
+    "input": { "repo": "acme/shop", "path": "src/cart.ts", "ref": "main" },
+    "http": [
+      {
+        "method": "GET",
+        "urlPrefix": "https://api.github.com/repos/acme/shop/contents/src/cart.ts?ref=main",
+        "json": { "type": "file", "encoding": "base64", "size": 33, "sha": "b10b", "content": "ZXhwb3J0IGNvbnN0IHRvdGFsID0g\nKGMpID0+IGMudG90YWw7Cg==" }
+      }
+    ]
+  },
+  {
+    "name": "refuses a path that climbs out of the repository",
+    "action": "get_file",
+    "input": { "repo": "acme/shop", "path": "src/../../etc/passwd", "ref": "main" },
+    "expectOk": false
+  },
+  {
+    "name": "creates a fix branch at a commit",
+    "action": "create_branch",
+    "input": { "repo": "acme/shop", "branch": "dittoly/fix-3f9a2c1d7e", "ref": "0123456789abcdef0123456789abcdef01234567" },
+    "http": [{ "method": "POST", "urlPrefix": "https://api.github.com/repos/acme/shop/git/refs", "status": 201, "json": { "ref": "refs/heads/dittoly/fix-3f9a2c1d7e", "object": { "sha": "0123456789abcdef0123456789abcdef01234567" } } }]
+  },
+  {
+    "name": "creates a fix branch at the head of a branch",
+    "action": "create_branch",
+    "input": { "repo": "acme/shop", "branch": "dittoly/fix-3f9a2c1d7e", "ref": "main" },
+    "http": [
+      { "method": "GET", "urlPrefix": "https://api.github.com/repos/acme/shop/git/ref/heads/main", "json": { "ref": "refs/heads/main", "object": { "sha": "0123456789abcdef0123456789abcdef01234567" } } },
+      { "method": "POST", "urlPrefix": "https://api.github.com/repos/acme/shop/git/refs", "status": 201, "json": { "ref": "refs/heads/dittoly/fix-3f9a2c1d7e" } }
+    ]
+  },
+  {
+    "name": "refuses to create a branch outside dittoly/fix-",
+    "action": "create_branch",
+    "input": { "repo": "acme/shop", "branch": "main", "ref": "0123456789abcdef0123456789abcdef01234567" },
+    "expectOk": false
+  },
+  {
+    "name": "deletes a fix branch",
+    "action": "delete_branch",
+    "input": { "repo": "acme/shop", "branch": "dittoly/fix-3f9a2c1d7e" },
+    "http": [{ "method": "DELETE", "urlPrefix": "https://api.github.com/repos/acme/shop/git/refs/heads/dittoly/fix-3f9a2c1d7e", "status": 204 }]
+  },
+  {
+    "name": "refuses to delete the default branch",
+    "action": "delete_branch",
+    "input": { "repo": "acme/shop", "branch": "main" },
+    "expectOk": false
+  },
+  {
+    "name": "commits a verified fix's change files in one commit",
+    "action": "commit_files",
+    "input": {
+      "repo": "acme/shop",
+      "branch": "dittoly/fix-3f9a2c1d7e",
+      "message": "Fix cart total when the cart is empty",
+      "files": [
+        { "path": "src/cart.ts", "action": "update", "content": "export const total = (c) => c?.total ?? 0;\n" },
+        { "path": "test/cart.regression.test.ts", "action": "create", "content": "import { total } from '../src/cart';\n" },
+        { "path": "src/old-cart.ts", "action": "delete" }
+      ]
+    },
+    "http": [
+      { "method": "GET", "urlPrefix": "https://api.github.com/repos/acme/shop/git/ref/heads/dittoly/fix-3f9a2c1d7e", "json": { "object": { "sha": "0123456789abcdef0123456789abcdef01234567" } } },
+      { "method": "GET", "urlPrefix": "https://api.github.com/repos/acme/shop/git/commits/0123456789abcdef0123456789abcdef01234567", "json": { "sha": "0123456789abcdef0123456789abcdef01234567", "tree": { "sha": "1111111111111111111111111111111111111111" } } },
+      { "method": "POST", "urlPrefix": "https://api.github.com/repos/acme/shop/git/trees", "status": 201, "json": { "sha": "2222222222222222222222222222222222222222" } },
+      { "method": "POST", "urlPrefix": "https://api.github.com/repos/acme/shop/git/commits", "status": 201, "json": { "sha": "3333333333333333333333333333333333333333", "html_url": "https://github.com/acme/shop/commit/3333333333333333333333333333333333333333" } },
+      { "method": "PATCH", "urlPrefix": "https://api.github.com/repos/acme/shop/git/refs/heads/dittoly/fix-3f9a2c1d7e", "json": { "object": { "sha": "3333333333333333333333333333333333333333" } } }
+    ]
+  },
+  {
+    "name": "refuses a change to a CI workflow",
+    "action": "commit_files",
+    "input": { "repo": "acme/shop", "branch": "dittoly/fix-3f9a2c1d7e", "message": "x", "files": [{ "path": ".github/workflows/ci.yml", "action": "update", "content": "on: push\n" }] },
+    "expectOk": false
+  },
+  {
+    "name": "opens a draft pull request with labels",
+    "action": "create_draft_pr",
+    "input": { "repo": "acme/shop", "head": "dittoly/fix-3f9a2c1d7e", "base": "main", "title": "Fix TypeError in cartTotal", "body": "## Verified fix", "labels": ["dittoly"] },
+    "http": [
+      { "method": "POST", "urlPrefix": "https://api.github.com/repos/acme/shop/pulls", "status": 201, "json": { "number": 13, "draft": true, "html_url": "https://github.com/acme/shop/pull/13" } },
+      { "method": "POST", "urlPrefix": "https://api.github.com/repos/acme/shop/issues/13/labels", "json": [{ "name": "dittoly" }] }
+    ]
+  },
+  {
+    "name": "refuses a pull request from a branch outside dittoly/fix-",
+    "action": "create_draft_pr",
+    "input": { "repo": "acme/shop", "head": "feature/x", "base": "main", "title": "x", "body": "" },
+    "expectOk": false
+  },
+  {
+    "name": "closes a pull request",
+    "action": "close_pr",
+    "input": { "repo": "acme/shop", "number": 13 },
+    "http": [{ "method": "PATCH", "urlPrefix": "https://api.github.com/repos/acme/shop/pulls/13", "json": { "number": 13, "state": "closed" } }]
+  },
+  {
+    "name": "refuses a repository with a path in it",
+    "action": "close_pr",
+    "input": { "repo": "acme/shop/../other", "number": 13 },
+    "expectOk": false
+  },
+  {
+    "name": "comments that the error was seen again",
+    "action": "comment_on_pr",
+    "input": { "repo": "acme/shop", "number": 12, "body": "Seen again (7 times in total)." },
+    "http": [{ "method": "POST", "urlPrefix": "https://api.github.com/repos/acme/shop/issues/12/comments", "status": 201, "json": { "id": 777, "html_url": "https://github.com/acme/shop/pull/12#issuecomment-777" } }]
+  },
+  {
+    "name": "refuses an empty comment",
+    "action": "comment_on_pr",
+    "input": { "repo": "acme/shop", "number": 12, "body": "" },
+    "expectOk": false
+  },
+  {
+    "name": "deletes a comment",
+    "action": "delete_comment",
+    "input": { "repo": "acme/shop", "commentId": 777 },
+    "http": [{ "method": "DELETE", "urlPrefix": "https://api.github.com/repos/acme/shop/issues/comments/777", "status": 204 }]
+  },
+  {
+    "name": "refuses a comment id below 1",
+    "action": "delete_comment",
+    "input": { "repo": "acme/shop", "commentId": 0 },
+    "expectOk": false
+  },
+  {
+    "name": "reuses a fix branch an earlier call made at the same commit",
+    "action": "create_branch",
+    "input": { "repo": "acme/shop", "branch": "dittoly/fix-3f9a2c1d7e", "ref": "0123456789abcdef0123456789abcdef01234567" },
+    "http": [
+      { "method": "POST", "urlPrefix": "https://api.github.com/repos/acme/shop/git/refs", "status": 422, "json": { "message": "Reference already exists" } },
+      { "method": "GET", "urlPrefix": "https://api.github.com/repos/acme/shop/git/ref/heads/dittoly/fix-3f9a2c1d7e", "json": { "object": { "sha": "0123456789abcdef0123456789abcdef01234567" } } }
+    ]
+  },
+  {
+    "name": "refuses a fix branch that already exists at another commit",
+    "action": "create_branch",
+    "input": { "repo": "acme/shop", "branch": "dittoly/fix-3f9a2c1d7e", "ref": "0123456789abcdef0123456789abcdef01234567" },
+    "http": [
+      { "method": "POST", "urlPrefix": "https://api.github.com/repos/acme/shop/git/refs", "status": 422, "json": { "message": "Reference already exists" } },
+      { "method": "GET", "urlPrefix": "https://api.github.com/repos/acme/shop/git/ref/heads/dittoly/fix-3f9a2c1d7e", "json": { "object": { "sha": "fedcba9876543210fedcba9876543210fedcba98" } } }
+    ],
+    "expectOk": false
+  },
+  {
+    "name": "reuses the commit an earlier call made (same tree, same message)",
+    "action": "commit_files",
+    "input": { "repo": "acme/shop", "branch": "dittoly/fix-3f9a2c1d7e", "message": "Fix cart total when the cart is empty", "files": [{ "path": "src/cart.ts", "action": "update", "content": "export const total = (c) => c?.total ?? 0;\n" }, { "path": "test/cart.regression.test.ts", "action": "create", "content": "import { total } from '../src/cart';\n" }, { "path": "src/old-cart.ts", "action": "delete" }]},
+    "http": [
+      { "method": "GET", "urlPrefix": "https://api.github.com/repos/acme/shop/git/ref/heads/dittoly/fix-3f9a2c1d7e", "json": { "object": { "sha": "fedcba9876543210fedcba9876543210fedcba98" } } },
+      { "method": "GET", "urlPrefix": "https://api.github.com/repos/acme/shop/git/commits/fedcba9876543210fedcba9876543210fedcba98", "json": { "sha": "fedcba9876543210fedcba9876543210fedcba98", "message": "Fix cart total when the cart is empty", "tree": { "sha": "2222222222222222222222222222222222222222" }, "html_url": "https://github.com/acme/shop/commit/fedcba9876543210fedcba9876543210fedcba98" } },
+      { "method": "POST", "urlPrefix": "https://api.github.com/repos/acme/shop/git/trees", "status": 201, "json": { "sha": "2222222222222222222222222222222222222222" } }
+    ]
+  },
+  {
+    "name": "returns the open pull request an earlier call made",
+    "action": "create_draft_pr",
+    "input": { "repo": "acme/shop", "head": "dittoly/fix-3f9a2c1d7e", "base": "main", "title": "Fix TypeError in cartTotal", "body": "## Verified fix", "labels": ["dittoly"]},
+    "http": [
+      { "method": "POST", "urlPrefix": "https://api.github.com/repos/acme/shop/pulls", "status": 422, "json": { "message": "Validation Failed", "errors": [{ "message": "A pull request already exists for acme:dittoly/fix-3f9a2c1d7e." }]} },
+      { "method": "GET", "urlPrefix": "https://api.github.com/repos/acme/shop/pulls?state=open&head=acme%3Adittoly%2Ffix-3f9a2c1d7e", "json": [{ "number": 13, "state": "open", "draft": true, "html_url": "https://github.com/acme/shop/pull/13" }]},
+      { "method": "POST", "urlPrefix": "https://api.github.com/repos/acme/shop/issues/13/labels", "json": [{ "name": "dittoly" }]}
+    ]
+  },
+  {
+    "name": "refuses a pull request GitHub rejects when none is open",
+    "action": "create_draft_pr",
+    "input": { "repo": "acme/shop", "head": "dittoly/fix-3f9a2c1d7e", "base": "main", "title": "x", "body": "" },
+    "http": [
+      { "method": "POST", "urlPrefix": "https://api.github.com/repos/acme/shop/pulls", "status": 422, "json": { "message": "Validation Failed" } },
+      { "method": "GET", "urlPrefix": "https://api.github.com/repos/acme/shop/pulls?state=open", "json": []}
+    ],
+    "expectOk": false
+  }
+]

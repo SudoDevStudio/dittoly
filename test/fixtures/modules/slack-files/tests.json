@@ -1,0 +1,54 @@
+[
+  {
+    "name": "posts text",
+    "action": "post",
+    "input": {
+      "channel": "C123",
+      "text": "All checks passed."
+    },
+    "http": [
+      {
+        "method": "POST",
+        "urlPrefix": "https://slack.com/api/chat.postMessage",
+        "json": {
+          "ok": true,
+          "ts": "1"
+        }
+      }
+    ]
+  },
+  {
+    "name": "posts screenshots with the text",
+    "action": "post",
+    "input": {
+      "channel": "C123",
+      "text": "1 of 2 checks passed.",
+      "screenshots": [
+        "data:image/png;base64,iVBORw0KGgo="
+      ]
+    },
+    "http": [
+      {
+        "method": "POST",
+        "urlPrefix": "https://slack.com/api/files.getUploadURLExternal",
+        "json": {
+          "ok": true,
+          "upload_url": "https://files.slack.com/upload/v1/abc",
+          "file_id": "F1"
+        }
+      },
+      {
+        "method": "POST",
+        "urlPrefix": "https://files.slack.com/upload/v1/abc",
+        "json": {}
+      },
+      {
+        "method": "POST",
+        "urlPrefix": "https://slack.com/api/files.completeUploadExternal",
+        "json": {
+          "ok": true
+        }
+      }
+    ]
+  }
+]

@@ -1,0 +1,128 @@
+{
+  "_comment": "Real tasks a team would ask for, with what the answer must and must not contain. Grow this to 50-100: the harness (scripts/bench/tasks.ts) takes any number. Every action named here is in test/fixtures/modules, so the same file works for every model and every version of Dittoly.",
+  "tasks": [
+    {
+      "name": "jira-count-to-slack",
+      "department": "engineering",
+      "request": "When someone runs it, ask for a JQL query, find the matching Jira issues and post how many there are to a Slack channel they pick.",
+      "must": { "actions": ["search_issues", "post_message"], "inputs": 2 },
+      "mustNot": { "actions": [] }
+    },
+    {
+      "name": "merge-after-signoff",
+      "department": "engineering",
+      "request": "Find the open merge requests of a GitLab project, let a person sign off, then merge the ones they chose and tell the release channel in Slack what was merged.",
+      "must": { "actions": ["list_merge_requests", "merge_merge_request", "post_message"], "stepTypes": ["approval"], "approvalBeforeWrite": true }
+    },
+    {
+      "name": "no-merge-without-signoff",
+      "department": "engineering",
+      "request": "Merge every ready merge request of a GitLab project and tell the channel. A person must sign off before anything is merged.",
+      "must": { "actions": ["merge_merge_request"], "stepTypes": ["approval"], "approvalBeforeWrite": true }
+    },
+    {
+      "name": "error-seen-before",
+      "department": "engineering",
+      "request": "An error report arrives as JSON through a Flow URL. Decide with AI whether it is a real bug in our code and stop when it is not. Remember each error by the fingerprint of its text in a data table, and when it was seen before, stop and show what was recorded.",
+      "must": { "stepTypes": ["ai", "table"], "fingerprint": true, "declaresTable": true }
+    },
+    {
+      "name": "comment-on-pr",
+      "department": "engineering",
+      "request": "Read a GitHub pull request, have the AI summarise what changed, and post that summary as a comment on the pull request itself.",
+      "must": { "actions": ["comment_on_pr"], "stepTypes": ["ai"] },
+      "mustNot": { "actions": ["create_draft_pr", "commit_files"] }
+    },
+    {
+      "name": "review-comments",
+      "department": "engineering",
+      "request": "Read a GitHub pull request and its review comments, then post a short summary of the open points back as a review comment.",
+      "must": { "actions": ["read_pull_request", "post_review_comments"] }
+    },
+    {
+      "name": "ask-before-posting",
+      "department": "support",
+      "request": "Find the Jira issues matching a query, have the AI write a short status note, and ask a person to approve the note before it is posted to Slack.",
+      "must": { "actions": ["search_issues", "post_message"], "stepTypes": ["ai", "approval"], "approvalBeforeWrite": true }
+    },
+    {
+      "name": "daily-digest",
+      "department": "operations",
+      "request": "Every morning, collect the Jira issues that are still open and post a digest to the team's Slack channel. Nothing else.",
+      "must": { "actions": ["search_issues", "post_message"] },
+      "mustNot": { "stepTypes": ["fix", "app"] }
+    },
+    {
+      "name": "escalate-only-when-many",
+      "department": "operations",
+      "request": "Count the open Jira issues. Only if there are more than twenty, post a warning to the Slack channel. Otherwise do nothing.",
+      "must": { "actions": ["search_issues", "post_message"], "conditionOnWrite": true }
+    },
+    {
+      "name": "keep-a-counter",
+      "department": "finance",
+      "request": "Each time it runs, add one to a counter of handled invoices for the team in a data table, and post the new total to Slack.",
+      "must": { "stepTypes": ["table"], "tableOps": ["increment"], "actions": ["post_message"], "declaresTable": true }
+    },
+    {
+      "name": "read-then-write-safely",
+      "department": "finance",
+      "request": "Read the team's remaining budget from a data table, have a person approve the spend, then write the new amount back. It must not overwrite a change someone else made while the approval was waiting.",
+      "must": { "stepTypes": ["table", "approval"], "tableOps": ["get", "put"], "ifRevision": true }
+    },
+    {
+      "name": "fix-and-raise-pr",
+      "department": "engineering",
+      "request": "Take an error report, reproduce and fix it in a sandbox with a regression test, and only when the test passes open a draft pull request on GitHub with the change.",
+      "must": { "stepTypes": ["fix"], "actions": ["create_branch", "commit_files", "create_draft_pr"], "evidenceGate": true }
+    },
+    {
+      "name": "no-push-without-proof",
+      "department": "engineering",
+      "request": "Fix a failing test in our repository and push the change. Nothing may be pushed unless the fix is verified.",
+      "must": { "stepTypes": ["fix"], "evidenceGate": true }
+    },
+    {
+      "name": "ask-which-site",
+      "department": "engineering",
+      "request": "Search our Jira for the issues someone names, and let whoever starts the run choose which Jira site to search.",
+      "must": { "actions": ["search_issues"], "settingFromRun": true }
+    },
+    {
+      "name": "impossible-stripe",
+      "department": "finance",
+      "request": "Charge a customer's credit card in Stripe and email them a receipt.",
+      "must": { "cannotDraft": true }
+    },
+    {
+      "name": "impossible-hr",
+      "department": "hr",
+      "request": "Create the new employee in our HR system, order their laptop from the supplier and book their induction room.",
+      "must": { "cannotDraft": true }
+    },
+    {
+      "name": "one-job-per-step",
+      "department": "engineering",
+      "request": "Find the Jira issues of a release, then post one Slack message naming each of them.",
+      "must": { "actions": ["search_issues", "post_message"], "maxSteps": 4 }
+    },
+    {
+      "name": "forward-to-the-owner",
+      "department": "sales",
+      "request": "Find the Jira issues a query returns and post each one to the Slack channel named in that issue's own field, not to a fixed channel.",
+      "must": { "actions": ["search_issues", "post_message"], "writeUsesEarlierOutput": true }
+    },
+    {
+      "name": "weekly-report",
+      "department": "operations",
+      "request": "Every Monday, look up last week's Jira issues and post a report of what was closed to Slack, with a link back to the search.",
+      "must": { "actions": ["search_issues", "post_message"] }
+    },
+    {
+      "name": "stop-when-nothing-found",
+      "department": "support",
+      "request": "Search Jira for unanswered tickets. If there are none, stop quietly and post nothing.",
+      "must": { "actions": ["search_issues"], "conditionOnWrite": true }
+    }
+  ]
+}

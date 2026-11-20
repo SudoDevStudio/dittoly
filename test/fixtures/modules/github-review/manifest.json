@@ -1,0 +1,317 @@
+{
+  "name": "github-review",
+  "version": "1.0.0",
+  "title": "GitHub pull request review",
+  "description": "Reads a pull request (its changed files and their diffs) and the review comments already on it, and posts review comments on changed lines, skipping any that already say the same thing on the same line. Needs a GitHub token with Pull requests read and write access.",
+  "settings": [
+    {
+      "id": "host",
+      "type": "host",
+      "label": "GitHub API host (api.github.com, or your Enterprise Server host)",
+      "help": "Where the GitHub API is: api.github.com for github.com, or your GitHub Enterprise Server host.",
+      "example": "api.github.com",
+      "pattern": "api.github.com",
+      "default": "api.github.com"
+    }
+  ],
+  "hosts": [
+    "{{settings.host}}"
+  ],
+  "credentials": [
+    {
+      "id": "github_token",
+      "service": "github",
+      "label": "GitHub token (fine-grained: Pull requests read and write)",
+      "hosts": [
+        "{{settings.host}}"
+      ],
+      "placement": {
+        "type": "bearer"
+      }
+    }
+  ],
+  "actions": [
+    {
+      "name": "read_pull_request",
+      "title": "Read a pull request",
+      "description": "From a pull request's URL: its title, description, author, head commit and the changed files with their diffs (long diffs are cut).",
+      "effect": "read",
+      "credentials": [
+        "github_token"
+      ],
+      "input": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 300,
+            "pattern": "^https://[A-Za-z0-9.-]+(:[0-9]{1,5})?/[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}/pull/[0-9]{1,9}(/.*)?$"
+          },
+          "maxFiles": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "maxPatchChars": {
+            "type": "integer",
+            "minimum": 500,
+            "maximum": 50000,
+            "default": 12000
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "repo": {
+            "type": "string"
+          },
+          "number": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "author": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "headSha": {
+            "type": "string"
+          },
+          "baseRef": {
+            "type": "string"
+          },
+          "headRef": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "additions": {
+                  "type": "integer"
+                },
+                "deletions": {
+                  "type": "integer"
+                },
+                "patch": {
+                  "type": "string"
+                },
+                "truncated": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "path",
+                "status",
+                "patch",
+                "truncated"
+              ]
+            }
+          },
+          "filesTruncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "repo",
+          "number",
+          "title",
+          "headSha",
+          "files",
+          "filesTruncated"
+        ]
+      }
+    },
+    {
+      "name": "list_review_comments",
+      "title": "List a pull request's review comments",
+      "description": "The review comments already on a pull request's changed lines: file, line, text and author.",
+      "effect": "read",
+      "credentials": [
+        "github_token"
+      ],
+      "input": {
+        "type": "object",
+        "properties": {
+          "repo": {
+            "type": "string",
+            "maxLength": 140,
+            "pattern": "^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$"
+          },
+          "number": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "repo",
+          "number"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "comments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "line": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "body": {
+                  "type": "string"
+                },
+                "author": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "path",
+                "line",
+                "body"
+              ]
+            }
+          }
+        },
+        "required": [
+          "comments"
+        ]
+      }
+    },
+    {
+      "name": "post_review_comments",
+      "title": "Post review comments, skipping duplicates",
+      "description": "Posts review comments on changed lines. Takes the review as text with JSON {\"comments\": [{\"path\", \"line\", \"body\"}]}. Skips a comment when one on the same file and line already says the same, or its line is not in the diff. Safe to repeat.",
+      "effect": "write",
+      "idempotent": true,
+      "credentials": [
+        "github_token"
+      ],
+      "input": {
+        "type": "object",
+        "properties": {
+          "repo": {
+            "type": "string",
+            "maxLength": 140,
+            "pattern": "^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$"
+          },
+          "number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "commitId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+          },
+          "review": {
+            "type": "string",
+            "maxLength": 100000
+          }
+        },
+        "required": [
+          "repo",
+          "number",
+          "commitId",
+          "review"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "posted": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "line": {
+                  "type": "integer"
+                },
+                "url": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "path",
+                "line"
+              ]
+            }
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "line": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "reason"
+              ]
+            }
+          },
+          "summary": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "posted",
+          "skipped",
+          "summary"
+        ]
+      }
+    }
+  ]
+}

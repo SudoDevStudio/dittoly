@@ -1,0 +1,90 @@
+{
+  "name": "gitlab-notes",
+  "version": "1.0.0",
+  "title": "GitLab comments",
+  "description": "Comments on GitLab merge requests and issues, with screenshots uploaded to the project and shown inline. Needs your GitLab personal access token.",
+  "hosts": [
+    "gitlab.com"
+  ],
+  "credentials": [
+    {
+      "id": "gitlab_token",
+      "service": "gitlab",
+      "label": "GitLab personal access token",
+      "hosts": [
+        "gitlab.com"
+      ],
+      "placement": {
+        "type": "header",
+        "name": "PRIVATE-TOKEN",
+        "prefix": ""
+      }
+    }
+  ],
+  "actions": [
+    {
+      "name": "comment",
+      "title": "Comment on a merge request or issue",
+      "description": "Adds a Markdown comment to a merge request or issue; screenshots are uploaded to the project and shown in it.",
+      "effect": "write",
+      "credentials": [
+        "gitlab_token"
+      ],
+      "input": {
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "merge_request",
+              "issue"
+            ]
+          },
+          "iid": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100000
+          },
+          "screenshots": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "pattern": "^data:image/(jpeg|png);base64,"
+            }
+          }
+        },
+        "required": [
+          "project",
+          "kind",
+          "iid",
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "noteId": {
+            "type": "integer"
+          },
+          "uploads": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "noteId",
+          "uploads"
+        ]
+      }
+    }
+  ]
+}

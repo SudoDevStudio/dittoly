@@ -1,0 +1,128 @@
+[
+  {
+    "name": "reads a pull request and its changed files from its URL",
+    "action": "read_pull_request",
+    "input": {
+      "url": "https://github.com/acme/shop/pull/12"
+    },
+    "http": [
+      {
+        "method": "GET",
+        "urlPrefix": "https://api.github.com/repos/acme/shop/pulls/12/files?per_page=100&page=1",
+        "json": [
+          {
+            "filename": "src/cart.js",
+            "status": "modified",
+            "additions": 2,
+            "deletions": 1,
+            "patch": "@@ -10,3 +10,4 @@\n-  return a + b\n+  return Math.round((a + b) * 100) / 100\n+  // TODO"
+          }
+        ]
+      },
+      {
+        "method": "GET",
+        "urlPrefix": "https://api.github.com/repos/acme/shop/pulls/12",
+        "json": {
+          "number": 12,
+          "title": "Fix cart total",
+          "body": "Rounds totals.",
+          "state": "open",
+          "merged_at": null,
+          "html_url": "https://github.com/acme/shop/pull/12",
+          "user": {
+            "login": "sam"
+          },
+          "head": {
+            "sha": "3f9a2c1d7e3f9a2c1d7e3f9a2c1d7e3f9a2c1d7e",
+            "ref": "fix-total"
+          },
+          "base": {
+            "ref": "main"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "refuses a URL that is not a pull request",
+    "action": "read_pull_request",
+    "input": {
+      "url": "https://github.com/acme/shop/issues/12"
+    },
+    "http": [],
+    "expectOk": false
+  },
+  {
+    "name": "lists the review comments already on it",
+    "action": "list_review_comments",
+    "input": {
+      "repo": "acme/shop",
+      "number": 12
+    },
+    "http": [
+      {
+        "method": "GET",
+        "urlPrefix": "https://api.github.com/repos/acme/shop/pulls/12/comments?per_page=100&page=1",
+        "json": [
+          {
+            "id": 501,
+            "path": "src/cart.js",
+            "line": 11,
+            "body": "Please remove the TODO before merging.",
+            "user": {
+              "login": "lee"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "posts a new comment and skips one already made on the same line",
+    "action": "post_review_comments",
+    "input": {
+      "repo": "acme/shop",
+      "number": 12,
+      "commitId": "3f9a2c1d7e3f9a2c1d7e3f9a2c1d7e3f9a2c1d7e",
+      "review": "Here is the review:\n```json\n{\"comments\": [{\"path\": \"src/cart.js\", \"line\": 11, \"body\": \"please remove the TODO before merging\"}, {\"path\": \"src/cart.js\", \"line\": 10, \"body\": \"Rounding with Math.round can be off for halves; use an integer number of cents.\"}]}\n```"
+    },
+    "http": [
+      {
+        "method": "GET",
+        "urlPrefix": "https://api.github.com/repos/acme/shop/pulls/12/comments?per_page=100&page=1",
+        "json": [
+          {
+            "id": 501,
+            "path": "src/cart.js",
+            "line": 11,
+            "body": "Please remove the TODO before merging.",
+            "user": {
+              "login": "lee"
+            }
+          }
+        ]
+      },
+      {
+        "method": "POST",
+        "urlPrefix": "https://api.github.com/repos/acme/shop/pulls/12/comments",
+        "status": 201,
+        "json": {
+          "id": 777,
+          "html_url": "https://github.com/acme/shop/pull/12#discussion_r777"
+        }
+      }
+    ]
+  },
+  {
+    "name": "refuses a review that is not JSON",
+    "action": "post_review_comments",
+    "input": {
+      "repo": "acme/shop",
+      "number": 12,
+      "commitId": "3f9a2c1d7e3f9a2c1d7e3f9a2c1d7e3f9a2c1d7e",
+      "review": "Looks good to me."
+    },
+    "http": [],
+    "expectOk": false
+  }
+]

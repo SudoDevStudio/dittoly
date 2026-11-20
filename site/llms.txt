@@ -1,0 +1,18 @@
+# Dittoly
+
+> Self-hosted, open-source orchestration (Apache License 2.0). Describe a process across your apps in plain language, AI drafts it as a Flow from approved modules, a person approves that exact version, and the engine runs it with each member's own access.
+
+Dittoly runs on your own servers with Docker, PostgreSQL and RabbitMQ. It needs a Linux host with Docker Engine 28 or later; 2 vCPU and 4 GB of memory is the minimum, and 4 vCPU and 8 GB is recommended for sandboxed build and fix steps. Code it builds and tests runs in locked-down containers that cannot reach Dittoly, its database or your network, only the hosts each step declares.
+
+## Docs
+
+- [Run Dittoly on a server](https://github.com/SudoDevStudio/dittoly/blob/main/docs/server.md): requirements, single sign-on, HTTPS, upgrades and backups
+- [Getting started](https://github.com/SudoDevStudio/dittoly/blob/main/docs/getting-started.md): first steps in the app
+- [Governance](https://github.com/SudoDevStudio/dittoly/blob/main/docs/governance.md): approvals, policies, audit chain, SOC 2 and ISO 27001 evidence mapping
+- [Super Flows](https://github.com/SudoDevStudio/dittoly/blob/main/docs/super-flows.md): connecting Flows into bigger ones
+- [MCP server](https://github.com/SudoDevStudio/dittoly/blob/main/docs/mcp-server.md): approved Flows as tools for Claude, ChatGPT and Copilot
+
+## Optional
+
+- [Source code](https://github.com/SudoDevStudio/dittoly)
+- [All documentation](https://github.com/SudoDevStudio/dittoly/tree/main/docs)

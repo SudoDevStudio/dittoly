@@ -1,0 +1,242 @@
+{
+  "name": "github-fix",
+  "version": "1.1.0",
+  "title": "GitHub fix branches and draft pull requests",
+  "description": "Pushes a verified fix to GitHub: finds an open pull request by head branch, reads files, creates a dittoly/fix-* branch, commits several file changes in one commit (git data API), opens a draft pull request and comments on it. Needs a GitHub token with contents and pull requests write access.",
+  "settings": [
+    {
+      "id": "host",
+      "type": "host",
+      "label": "GitHub API host (api.github.com, or your Enterprise Server host)",
+      "help": "Where the GitHub API is: api.github.com for github.com, or your GitHub Enterprise Server host.",
+      "example": "api.github.com",
+      "pattern": "api.github.com",
+      "default": "api.github.com"
+    }
+  ],
+  "hosts": ["{{settings.host}}"],
+  "credentials": [
+    {
+      "id": "github_token",
+      "service": "github",
+      "label": "GitHub token (fine-grained: Contents and Pull requests read and write)",
+      "hosts": ["{{settings.host}}"],
+      "placement": { "type": "bearer" }
+    }
+  ],
+  "actions": [
+    {
+      "name": "find_open_pr_by_head",
+      "title": "Find the pull request of a fix branch",
+      "description": "Looks up pull requests whose head is this dittoly/fix-* branch: the open one (if any) and the newest in any state (merged, closed).",
+      "effect": "read",
+      "credentials": ["github_token"],
+      "input": {
+        "type": "object",
+        "properties": {
+          "repo": { "type": "string", "maxLength": 140, "pattern": "^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$" },
+          "branch": { "type": "string", "pattern": "^dittoly/fix-[a-z0-9-]{4,64}$" }
+        },
+        "required": ["repo", "branch"],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "found": { "type": "boolean" },
+          "pr": { "type": ["object", "null"], "properties": { "number": { "type": "integer" }, "url": { "type": "string" }, "state": { "type": "string" }, "draft": { "type": "boolean" }, "title": { "type": "string" } } },
+          "latest": { "type": ["object", "null"], "properties": { "number": { "type": "integer" }, "url": { "type": "string" }, "state": { "type": "string" }, "draft": { "type": "boolean" }, "title": { "type": "string" } } }
+        },
+        "required": ["found", "pr", "latest"]
+      }
+    },
+    {
+      "name": "get_file",
+      "title": "Read a file",
+      "description": "Reads one text file of the repository at a branch, tag or commit (trimmed to maxChars; files over 1 MB are refused).",
+      "effect": "read",
+      "credentials": ["github_token"],
+      "input": {
+        "type": "object",
+        "properties": {
+          "repo": { "type": "string", "maxLength": 140, "pattern": "^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$" },
+          "path": { "type": "string", "maxLength": 300, "pattern": "^\\.?[A-Za-z0-9_@+-][A-Za-z0-9_.@+-]*(/\\.?[A-Za-z0-9_@+-][A-Za-z0-9_.@+-]*){0,30}$" },
+          "ref": { "type": "string", "maxLength": 200, "pattern": "^[A-Za-z0-9_][A-Za-z0-9._/-]{0,199}$" },
+          "maxChars": { "type": "integer", "minimum": 100, "maximum": 200000, "default": 100000 }
+        },
+        "required": ["repo", "path", "ref"],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" },
+          "content": { "type": "string" },
+          "size": { "type": "integer" },
+          "truncated": { "type": "boolean" },
+          "sha": { "type": "string" }
+        },
+        "required": ["path", "content", "size", "truncated"]
+      }
+    },
+    {
+      "name": "create_branch",
+      "title": "Create a fix branch",
+      "description": "Creates a dittoly/fix-* branch at a commit sha (or at the head of a branch, read first). A branch already at that commit (from a call whose answer was lost) is reused.",
+      "effect": "write",
+      "idempotent": true,
+      "credentials": ["github_token"],
+      "input": {
+        "type": "object",
+        "properties": {
+          "repo": { "type": "string", "maxLength": 140, "pattern": "^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$" },
+          "branch": { "type": "string", "pattern": "^dittoly/fix-[a-z0-9-]{4,64}$" },
+          "ref": { "type": "string", "maxLength": 200, "pattern": "^[A-Za-z0-9_][A-Za-z0-9._/-]{0,199}$" }
+        },
+        "required": ["repo", "branch", "ref"],
+        "additionalProperties": false
+      },
+      "output": { "type": "object", "properties": { "branch": { "type": "string" }, "commit": { "type": "string" }, "reused": { "type": "boolean" } }, "required": ["branch", "commit"] },
+      "undo": { "action": "delete_branch", "input": { "repo": "{{ input.repo }}", "branch": "{{ input.branch }}" } }
+    },
+    {
+      "name": "delete_branch",
+      "title": "Delete a fix branch",
+      "description": "Deletes a dittoly/fix-* branch (a branch that is already gone counts as deleted).",
+      "effect": "write",
+      "idempotent": true,
+      "credentials": ["github_token"],
+      "input": {
+        "type": "object",
+        "properties": {
+          "repo": { "type": "string", "maxLength": 140, "pattern": "^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$" },
+          "branch": { "type": "string", "pattern": "^dittoly/fix-[a-z0-9-]{4,64}$" }
+        },
+        "required": ["repo", "branch"],
+        "additionalProperties": false
+      },
+      "output": { "type": "object", "properties": { "branch": { "type": "string" }, "deleted": { "type": "boolean" } }, "required": ["branch", "deleted"] }
+    },
+    {
+      "name": "commit_files",
+      "title": "Commit file changes",
+      "description": "Commits several text file changes (create, update, delete) to a dittoly/fix-* branch as one commit: one tree with inline contents, one commit, one fast-forward ref update. Dot-files and dot-folders (CI workflows) cannot be changed. A head commit with this message and these files is reused.",
+      "effect": "write",
+      "idempotent": true,
+      "credentials": ["github_token"],
+      "input": {
+        "type": "object",
+        "properties": {
+          "repo": { "type": "string", "maxLength": 140, "pattern": "^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$" },
+          "branch": { "type": "string", "pattern": "^dittoly/fix-[a-z0-9-]{4,64}$" },
+          "message": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "files": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": { "type": "string", "maxLength": 300, "pattern": "^[A-Za-z0-9_@+-][A-Za-z0-9_.@+-]*(/[A-Za-z0-9_@+-][A-Za-z0-9_.@+-]*){0,30}$" },
+                "action": { "type": "string", "enum": ["create", "update", "delete"] },
+                "content": { "type": "string", "maxLength": 40000 }
+              },
+              "required": ["path", "action"],
+              "additionalProperties": false,
+              "if": { "properties": { "action": { "enum": ["create", "update"] } } },
+              "then": { "required": ["content"] }
+            }
+          }
+        },
+        "required": ["repo", "branch", "message", "files"],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": { "sha": { "type": "string" }, "url": { "type": "string" }, "filesChanged": { "type": "integer" }, "reused": { "type": "boolean" } },
+        "required": ["sha", "filesChanged"]
+      }
+    },
+    {
+      "name": "create_draft_pr",
+      "title": "Open a draft pull request",
+      "description": "Opens a draft pull request from a dittoly/fix-* branch with a Markdown body, then adds labels (labelsApplied says whether that worked). An open pull request from the branch (from a call whose answer was lost) is returned.",
+      "effect": "write",
+      "idempotent": true,
+      "credentials": ["github_token"],
+      "input": {
+        "type": "object",
+        "properties": {
+          "repo": { "type": "string", "maxLength": 140, "pattern": "^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$" },
+          "head": { "type": "string", "pattern": "^dittoly/fix-[a-z0-9-]{4,64}$" },
+          "base": { "type": "string", "maxLength": 200, "pattern": "^[A-Za-z0-9_][A-Za-z0-9._/-]{0,199}$" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[^\\r\\n]+$" },
+          "body": { "type": "string", "maxLength": 65536 },
+          "labels": { "type": "array", "maxItems": 10, "items": { "type": "string", "pattern": "^[^,\\r\\n]{1,50}$" } }
+        },
+        "required": ["repo", "head", "base", "title", "body"],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": { "number": { "type": "integer" }, "url": { "type": "string" }, "draft": { "type": "boolean" }, "labelsApplied": { "type": "boolean" }, "reused": { "type": "boolean" } },
+        "required": ["number", "url", "draft", "labelsApplied"]
+      },
+      "undo": { "action": "close_pr", "input": { "repo": "{{ input.repo }}", "number": "{{ output.number }}" } }
+    },
+    {
+      "name": "close_pr",
+      "title": "Close a pull request",
+      "description": "Closes a pull request without merging it.",
+      "effect": "write",
+      "idempotent": true,
+      "credentials": ["github_token"],
+      "input": {
+        "type": "object",
+        "properties": {
+          "repo": { "type": "string", "maxLength": 140, "pattern": "^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$" },
+          "number": { "type": "integer", "minimum": 1 }
+        },
+        "required": ["repo", "number"],
+        "additionalProperties": false
+      },
+      "output": { "type": "object", "properties": { "number": { "type": "integer" }, "state": { "type": "string" } }, "required": ["number", "state"] }
+    },
+    {
+      "name": "comment_on_pr",
+      "title": "Comment on a pull request",
+      "description": "Adds a Markdown comment to a pull request's conversation.",
+      "effect": "write",
+      "credentials": ["github_token"],
+      "input": {
+        "type": "object",
+        "properties": {
+          "repo": { "type": "string", "maxLength": 140, "pattern": "^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$" },
+          "number": { "type": "integer", "minimum": 1 },
+          "body": { "type": "string", "minLength": 1, "maxLength": 65536 }
+        },
+        "required": ["repo", "number", "body"],
+        "additionalProperties": false
+      },
+      "output": { "type": "object", "properties": { "commentId": { "type": "integer" }, "url": { "type": "string" } }, "required": ["commentId"] },
+      "undo": { "action": "delete_comment", "input": { "repo": "{{ input.repo }}", "commentId": "{{ output.commentId }}" } }
+    },
+    {
+      "name": "delete_comment",
+      "title": "Delete a pull request comment",
+      "description": "Deletes one comment from a pull request's conversation.",
+      "effect": "write",
+      "credentials": ["github_token"],
+      "input": {
+        "type": "object",
+        "properties": {
+          "repo": { "type": "string", "maxLength": 140, "pattern": "^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$" },
+          "commentId": { "type": "integer", "minimum": 1 }
+        },
+        "required": ["repo", "commentId"],
+        "additionalProperties": false
+      },
+      "output": { "type": "object", "properties": { "deleted": { "type": "boolean" } }, "required": ["deleted"] }
+    }
+  ]
+}

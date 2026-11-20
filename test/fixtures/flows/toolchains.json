@@ -1,0 +1,161 @@
+{
+  "about": "The fix step's commands per language and build tool, as the error-to-fix templates use them. Each one is tested in Docker by test/toolchains-docker.test.ts with a small project that has a bug.",
+  "toolchains": [
+    {
+      "id": "java-maven",
+      "title": "Java (Maven)",
+      "image": "maven:3-eclipse-temurin-25",
+      "install": "mvn -B -q dependency:go-offline",
+      "build": "mvn -B -q compile",
+      "test": "mvn -B -q test",
+      "testFile": "mvn -B -q test -Dtest=\"$(basename {file} .java)\"",
+      "sourceDirs": [
+        "src/main/"
+      ],
+      "testDirs": [
+        "src/test/"
+      ]
+    },
+    {
+      "id": "gradle-kotlin",
+      "title": "Kotlin or Java (Gradle)",
+      "image": "gradle:9.8-jdk25",
+      "install": "gradle --no-daemon -q dependencies --configuration testRuntimeClasspath",
+      "build": "gradle --no-daemon -q classes",
+      "test": "gradle --no-daemon -q test",
+      "testFile": "gradle --no-daemon -q test --tests \"*$(basename {file} | sed 's/[.][^.]*$//')\"",
+      "sourceDirs": [
+        "src/main/"
+      ],
+      "testDirs": [
+        "src/test/"
+      ]
+    },
+    {
+      "id": "python",
+      "title": "Python (pip and pytest)",
+      "image": "python:3.14-slim",
+      "install": "pip install --no-cache-dir -q -r requirements.txt",
+      "build": "python -m compileall -q .",
+      "test": "python -m pytest -q",
+      "testFile": "python -m pytest -q {file}",
+      "sourceDirs": [
+        "src/",
+        "app/"
+      ],
+      "testDirs": [
+        "tests/",
+        "test/"
+      ]
+    },
+    {
+      "id": "go",
+      "title": "Go",
+      "image": "golang:1.27",
+      "install": "go mod download",
+      "build": "go build ./...",
+      "test": "go test ./...",
+      "testFile": "go test \"./$(dirname {file})\"",
+      "sourceDirs": [
+        "cmd/",
+        "internal/",
+        "pkg/"
+      ],
+      "testDirs": []
+    },
+    {
+      "id": "rust",
+      "title": "Rust (Cargo)",
+      "image": "rust:1.99-slim",
+      "install": "cargo fetch --locked",
+      "build": "cargo build --locked --all-targets",
+      "test": "cargo test --locked",
+      "testFile": "cargo test --locked --test \"$(basename {file} .rs)\"",
+      "sourceDirs": [
+        "src/"
+      ],
+      "testDirs": [
+        "tests/"
+      ]
+    },
+    {
+      "id": "dotnet",
+      "title": "C# (.NET)",
+      "image": "mcr.microsoft.com/dotnet/sdk:10.0",
+      "install": "dotnet restore",
+      "build": "dotnet build --no-restore",
+      "test": "dotnet test --no-restore",
+      "testFile": "dotnet test --no-restore --filter-class \"*$(basename {file} .cs)\"",
+      "sourceDirs": [
+        "src/"
+      ],
+      "testDirs": [
+        "tests/",
+        "test/"
+      ]
+    },
+    {
+      "id": "ruby",
+      "title": "Ruby (Bundler)",
+      "image": "ruby:4.0",
+      "install": "bundle install --quiet",
+      "test": "bundle exec rake test",
+      "testFile": "bundle exec ruby -Ilib -Itest {file}",
+      "sourceDirs": [
+        "app/",
+        "lib/"
+      ],
+      "testDirs": [
+        "test/",
+        "spec/"
+      ]
+    },
+    {
+      "id": "php",
+      "title": "PHP (Composer and PHPUnit)",
+      "image": "composer:2",
+      "install": "composer install --no-interaction --no-progress --quiet",
+      "test": "vendor/bin/phpunit",
+      "testFile": "vendor/bin/phpunit {file}",
+      "sourceDirs": [
+        "src/",
+        "app/"
+      ],
+      "testDirs": [
+        "tests/"
+      ]
+    },
+    {
+      "id": "bun",
+      "title": "TypeScript (Bun)",
+      "image": "oven/bun:1.4",
+      "install": "bun install --frozen-lockfile",
+      "test": "bun test",
+      "testFile": "bun test ./{file}",
+      "sourceDirs": [
+        "src/"
+      ],
+      "testDirs": [
+        "test/",
+        "tests/",
+        "__tests__/"
+      ]
+    },
+    {
+      "id": "deno",
+      "title": "TypeScript (Deno)",
+      "image": "denoland/deno:2.9.8",
+      "install": "deno install --frozen",
+      "build": "deno check",
+      "test": "deno test",
+      "testFile": "deno test {file}",
+      "sourceDirs": [
+        "src/"
+      ],
+      "testDirs": [
+        "test/",
+        "tests/"
+      ]
+    }
+  ]
+}

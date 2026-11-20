@@ -1,0 +1,71 @@
+[
+  {
+    "name": "reads an issue",
+    "action": "get_issue",
+    "input": {
+      "key": "REL-1"
+    },
+    "http": [
+      {
+        "method": "GET",
+        "urlPrefix": "https://example.atlassian.net/rest/api/2/issue/REL-1",
+        "json": {
+          "key": "REL-1",
+          "fields": {
+            "summary": "Cart is broken",
+            "description": "Open the cart: it shows a 404.",
+            "status": {
+              "name": "Open"
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "comments with a screenshot",
+    "action": "comment_issue",
+    "input": {
+      "key": "REL-1",
+      "body": "h3. Triage complete",
+      "screenshots": [
+        "data:image/png;base64,iVBORw0KGgo="
+      ]
+    },
+    "http": [
+      {
+        "method": "POST",
+        "urlPrefix": "https://example.atlassian.net/rest/api/3/issue/REL-1/attachments",
+        "json": [
+          {
+            "filename": "screenshot-1.png"
+          }
+        ]
+      },
+      {
+        "method": "POST",
+        "urlPrefix": "https://example.atlassian.net/rest/api/2/issue/REL-1/comment",
+        "json": {
+          "id": "10001"
+        }
+      }
+    ]
+  },
+  {
+    "name": "adds a label",
+    "action": "add_labels",
+    "input": {
+      "key": "REL-1",
+      "labels": [
+        "triage-fix-pending"
+      ]
+    },
+    "http": [
+      {
+        "method": "PUT",
+        "urlPrefix": "https://example.atlassian.net/rest/api/2/issue/REL-1",
+        "status": 204
+      }
+    ]
+  }
+]

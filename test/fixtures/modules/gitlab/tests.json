@@ -1,0 +1,26 @@
+[
+  {
+    "name": "lists ready merge requests",
+    "action": "list_merge_requests",
+    "input": { "project": "acme/app", "label": "ready" },
+    "http": [
+      {
+        "method": "GET",
+        "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fapp/merge_requests",
+        "json": [{ "iid": 7, "title": "Add export", "detailed_merge_status": "mergeable" }]
+      }
+    ]
+  },
+  {
+    "name": "merges one merge request",
+    "action": "merge_merge_request",
+    "input": { "project": "acme/app", "iid": 7 },
+    "http": [
+      {
+        "method": "PUT",
+        "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fapp/merge_requests/7/merge",
+        "json": { "iid": 7, "state": "merged" }
+      }
+    ]
+  }
+]

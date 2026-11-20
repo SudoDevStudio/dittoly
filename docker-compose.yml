@@ -1,0 +1,63 @@
+# Dittoly shared server: `docker compose up -d` (settings in .env, see docs/install.md).
+# For development only the services are needed: `docker compose up -d postgres rabbitmq`.
+services:
+  dittoly:
+    build: .
+    image: dittoly:latest
+    depends_on:
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    env_file: .env
+    environment:
+      DITTOLY_MODE: local
+      DITTOLY_SANDBOX: docker
+      HOST: 0.0.0.0
+      PORT: 8080
+      DATABASE_URL: postgres://postgres@postgres:5432/${DITTOLY_COMPOSE_DB:-dittoly}
+      DITTOLY_AMQP_URL: amqp://${DITTOLY_COMPOSE_MQ_USER:-dittoly}:${DITTOLY_COMPOSE_MQ_USER:-dittoly}@rabbitmq:5672
+      # Module code is written here and mounted into sandbox containers by the host's Docker,
+      # so the path must be the same inside this container and on the host.
+      TMPDIR: /tmp/dittoly-sandbox
+    ports:
+      - "8080:8080"
+    volumes:
+      # Lets Dittoly start sandbox containers. This is root-equivalent access to the host.
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/dittoly-sandbox:/tmp/dittoly-sandbox
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+      # DITTOLY_COMPOSE_DB / DITTOLY_COMPOSE_MQ_USER (in .env): the database and RabbitMQ user names (default dittoly).
+      POSTGRES_DB: ${DITTOLY_COMPOSE_DB:-dittoly}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/create-test-db.sql:/docker-entrypoint-initdb.d/create-test-db.sql:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "${DITTOLY_COMPOSE_DB:-dittoly}"]
+      interval: 2s
+      retries: 30
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:4.2-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${DITTOLY_COMPOSE_MQ_USER:-dittoly}
+      RABBITMQ_DEFAULT_PASS: ${DITTOLY_COMPOSE_MQ_USER:-dittoly}
+    ports:
+      - "127.0.0.1:5672:5672"
+    volumes:
+      - rabbitmq:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 5s
+      retries: 30
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  rabbitmq:

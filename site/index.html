@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dittoly: self-hosted orchestration with human approval</title>
+  <meta name="description" content="Self-hosted, open-source orchestration. Describe a process across your apps, AI drafts the Flow, a person approves it, and it runs with each member's own access.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f7f9fc" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#041424" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+  <!-- Open Graph and X/Twitter cards: how links to the page look when shared -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Dittoly">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:title" content="Dittoly: self-hosted orchestration with human approval">
+  <meta property="og:description" content="Self-hosted, open-source orchestration. Describe a process across your apps, AI drafts the Flow, a person approves it, and it runs with each member's own access.">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Dittoly: Orchestrate anything. Approved by people.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Dittoly: self-hosted orchestration with human approval">
+  <meta name="twitter:description" content="Self-hosted, open-source orchestration. Describe a process across your apps, AI drafts the Flow, a person approves it, and it runs with each member's own access.">
+  <meta name="twitter:image:alt" content="Dittoly: Orchestrate anything. Approved by people.">
+
+  <!-- SITE-URL: these tags need the site's public address. Run `site/set-url.sh https://your.domain/` to switch them on.
+  <link rel="canonical" href="__SITE_URL__">
+  <meta property="og:url" content="__SITE_URL__">
+  <meta property="og:image" content="__SITE_URL__og-image.png">
+  <meta name="twitter:image" content="__SITE_URL__og-image.png">
+  SITE-URL -->
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Dittoly",
+    "description": "Self-hosted, open-source orchestration. Describe a process across your apps, AI drafts the Flow, a person approves it, and it runs with each member's own access.",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Linux (Docker)",
+    "softwareRequirements": "Docker Engine 28 or later with Compose v2",
+    "license": "https://www.apache.org/licenses/LICENSE-2.0",
+    "isAccessibleForFree": true,
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "sameAs": ["https://github.com/SudoDevStudio/dittoly"],
+    "featureList": [
+      "AI-drafted Flows from plain-language descriptions",
+      "Human approval of each exact version before it runs",
+      "Runs with each member's own credentials",
+      "Modules tested in a sandbox and approved before use",
+      "Error to verified fix: a draft pull request with a regression test",
+      "OpenID Connect single sign-on and SCIM provisioning",
+      "Hash-chained audit log with SIEM streaming",
+      "Approved Flows as MCP tools for AI assistants"
+    ]
+  }
+  </script>
+  <link rel="stylesheet" href="styles.css">
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is Dittoly?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Dittoly is self-hosted orchestration software. You describe a process across your apps in plain language, AI drafts it as a Flow from approved modules, a person approves that exact version, and the engine runs it with each member's own access."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How is Dittoly different from Claude, Codex or other AI models?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It is a different kind of tool. Claude, Codex and other AI models and assistants answer questions and do tasks when you ask them. Dittoly is orchestration software on your own servers that turns a repeatable process into a Flow: AI drafts it, a person approves that exact version, and the engine runs it the same way every time, with each member's own access and a full audit trail. It works with these models rather than replacing them: Dittoly uses Anthropic, OpenAI or Ollama models to draft and for AI steps, and it can give approved Flows to Claude, ChatGPT or Copilot as tools over MCP."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does Dittoly use AI tokens every time a Flow runs?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. AI is used once, to draft the modules and the Flow. After that, steps that call your apps run as code, without a model, so they spend no tokens and give the same result for the same input. Tokens are spent only by AI steps you choose to keep, which have pinned models and cost caps, and the Insights page shows the tokens and money each Flow saved."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is Dittoly free and open source?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Dittoly is released under the Apache License 2.0, and you run it on your own infrastructure."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Where does Dittoly run, and where does my data go?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Dittoly runs on your own servers with Docker, alongside PostgreSQL and RabbitMQ. Your data stays on your infrastructure. Code that Dittoly builds and tests runs in locked-down containers that cannot reach Dittoly, its database or your network, only the hosts each step declares."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What do I need to run Dittoly?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A Linux host with Docker Engine 28 or later and the Compose v2 plugin. The minimum is 2 vCPU and 4 GB of memory; 4 vCPU and 8 GB is recommended for sandboxed build and fix steps."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How does Dittoly keep AI-drafted automation safe?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Nothing AI drafts runs until a person approves it. The approver sees what the Flow can read, write and reach, policies can require more than one approver, and the engine runs only the approved version. Content from outside, such as a prompt injection, can never reach a write on its own."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Which languages does error-to-fix support?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Java, Kotlin, Python, Go, Rust, C#, Ruby, PHP and TypeScript. A fix arrives as a draft pull request with a regression test that fails before the fix and passes after."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does Dittoly work with AI assistants like Claude, ChatGPT or Copilot?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Dittoly can expose approved Flows as tools over the Model Context Protocol (MCP), with each person signed in as themselves and with scoped, expiring agent identities."
+      }
+    }
+  ]
+}
+  </script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="nav">
+    <div class="wrap nav-inner">
+      <a class="brand" href="#top" aria-label="Dittoly home">
+        <svg viewBox="9 11 46 46" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"><path d="M22 18 16 34M36 18 30 34"/><circle cx="44" cy="44" r="6" fill="currentColor" stroke="none" opacity=".55"/></svg>
+        Dittoly
+      </a>
+      <nav aria-label="Main">
+        <a href="#why">Why</a>
+        <a href="#how">How it works</a>
+        <a href="#features">Features</a>
+        <a href="#trust">Security</a>
+        <a href="docs.html">Guides</a>
+        <a href="#faq">FAQ</a>
+        <a href="#start" class="btn btn-small">Get started</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- Hero: a Flow in space -->
+    <section class="hero" id="top">
+      <div class="wrap hero-inner">
+        <div class="hero-copy">
+          <p class="eyebrow">Self-hosted orchestration</p>
+          <h1>Orchestrate anything.<br><span>Approved by people.</span></h1>
+          <p class="lede">Describe a process across your apps in plain language. AI drafts the Flow, a person approves it, and the engine runs exactly that version, with each member's own access.</p>
+          <div class="cta">
+            <a class="btn" href="#start">Run it on your server</a>
+            <a class="btn btn-ghost" href="#how">See how it works</a>
+          </div>
+          <p class="fine">Apache 2.0 · Runs on your own infrastructure · Your data stays with you</p>
+        </div>
+
+        <div class="scene" aria-hidden="true">
+          <div class="stage" id="stage">
+            <div class="card card-back">
+              <div class="card-head"><span class="dot"></span>Request</div>
+              <p class="mono">"When an error repeats, open a verified fix."</p>
+            </div>
+            <div class="card card-mid">
+              <div class="card-head"><span class="dot dot-warn"></span>Approval</div>
+              <ul class="steps">
+                <li><b>1</b> Find the error in the logs</li>
+                <li><b>2</b> AI triage, with evidence</li>
+                <li><b>3</b> Fix and verify in a sandbox</li>
+                <li><b>4</b> Open a draft pull request</li>
+              </ul>
+              <div class="approve"><span class="pill">Approved by Manager · v3</span></div>
+            </div>
+            <div class="card card-front">
+              <div class="card-head"><span class="dot dot-ok"></span>Run</div>
+              <div class="bar"><i style="--w:100%"></i></div>
+              <div class="bar"><i style="--w:100%"></i></div>
+              <div class="bar"><i style="--w:72%"></i></div>
+              <p class="mono small">Regression test fails before the fix, passes after.</p>
+            </div>
+            <div class="floor"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Why: do it with AI once, then repeat it without -->
+    <section class="section" id="why">
+      <div class="wrap">
+        <p class="eyebrow">Why Dittoly</p>
+        <h2>Do it with AI once. Repeat it without.</h2>
+        <p class="lede">Many tasks we hand to an AI are the same task, asked again and again: each time it costs tokens and energy, and the answer can change or be made up. Dittoly turns that task into small, tested modules joined in a Flow, so it comes back fast, the same way every time, without asking a model again.</p>
+        <div class="why-scene">
+          <div class="why-panel why-ai">
+            <div class="card-head"><span class="dot "></span>Asking an AI every time</div>
+            <ul>
+              <li><span class="why-k">Cost</span><span class="why-v">Spends tokens on every request.</span></li>
+              <li><span class="why-k">Result</span><span class="why-v">Can answer differently each time, or invent a result.</span></li>
+              <li><span class="why-k">Speed</span><span class="why-v">Waits for a model to think through the task again.</span></li>
+              <li><span class="why-k">Energy</span><span class="why-v">A full model run, every time.</span></li>
+              <li><span class="why-k">Proof</span><span class="why-v">Hard to show what happened, or why.</span></li>
+            </ul>
+          </div>
+          <div class="why-panel why-dty">
+            <div class="card-head"><span class="dot dot-ok"></span>A Dittoly Flow</div>
+            <ul>
+              <li><span class="why-k">Cost</span><span class="why-v">Tokens once, to draft it. Steps that call your apps run as code, with no tokens.</span></li>
+              <li><span class="why-k">Result</span><span class="why-v">Same input, same approved steps, same result. Modules are tested before anyone uses them.</span></li>
+              <li><span class="why-k">Speed</span><span class="why-v">Runs straight through your apps, with no model to wait for.</span></li>
+              <li><span class="why-k">Energy</span><span class="why-v">Model compute only where you keep an AI step on purpose.</span></li>
+              <li><span class="why-k">Proof</span><span class="why-v">An approved version, an audit log, and a count of the tokens you did not spend.</span></li>
+            </ul>
+          </div>
+        </div>
+        <p class="fine">Need judgment in a step? Keep an AI step there, with a pinned model and a cost cap. The Insights page counts the tokens and money each Flow saved by not asking an AI every time.</p>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="section" id="how">
+      <div class="wrap">
+        <p class="eyebrow">How it works</p>
+        <h2>From an idea to a governed run, in four steps</h2>
+        <div class="flow-scene">
+        <ol class="flow" id="flow">
+          <li>
+            <span class="num">01</span>
+            <h3>Describe</h3>
+            <p>Say what should happen across your tools, or upload a plan as a PDF. Dittoly asks about anything unclear before it drafts.</p>
+          </li>
+          <li>
+            <span class="num">02</span>
+            <h3>Draft</h3>
+            <p>AI drafts the Flow from approved modules. Every step, input and permission is visible, and you can edit it on a canvas.</p>
+          </li>
+          <li>
+            <span class="num">03</span>
+            <h3>Approve</h3>
+            <p>A person reviews what the Flow can read, write and reach, then approves that exact version. Policies can require more than one approver.</p>
+          </li>
+          <li>
+            <span class="num">04</span>
+            <h3>Run</h3>
+            <p>The engine runs only the approved version, with each member's own credentials. If you lack access, a teammate runs that one step with theirs.</p>
+          </li>
+        </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section class="section section-alt" id="features">
+      <div class="wrap">
+        <p class="eyebrow">What you get</p>
+        <h2>Built for teams that automate carefully</h2>
+        <div class="grid">
+          <article class="feature">
+            <h3>Modules</h3>
+            <p>Connectors to your apps, each tested in a sandbox and approved before anyone can use it. Version diffs and drift checks show what changed.</p>
+          </article>
+          <article class="feature">
+            <h3>Flows and Super Flows</h3>
+            <p>Automate a process, then connect Flows into bigger ones that run in parallel, with pinned versions and recorded tests shown to the approver.</p>
+          </article>
+          <article class="feature">
+            <h3>Error to verified fix</h3>
+            <p>From an alert to a draft pull request with a regression test that fails before the fix and passes after. Java, Kotlin, Python, Go, Rust, C#, Ruby, PHP and TypeScript.</p>
+          </article>
+          <article class="feature">
+            <h3>Apps</h3>
+            <p>Turn approved Flows into internal apps for your team, laid out by AI, versioned and approved like everything else, and exportable.</p>
+          </article>
+          <article class="feature">
+            <h3>AI with limits</h3>
+            <p>Pinned models, per-run cost caps, team budgets and automatic stops when a control fails. Prompt-injected content can never reach a write on its own.</p>
+          </article>
+          <article class="feature">
+            <h3>Works with your AI assistants</h3>
+            <p>Expose approved Flows to Claude, ChatGPT or Copilot as tools over MCP, signed in as each person, with scoped and expiring agent identities.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Security -->
+    <section class="section" id="trust">
+      <div class="wrap trust">
+        <div>
+          <p class="eyebrow">Security and governance</p>
+          <h2>Your security team stays in control</h2>
+          <p class="lede">Dittoly runs on your servers. Code it builds and tests runs in locked-down containers that cannot see Dittoly, its database or your network, only the hosts each step declares.</p>
+        </div>
+        <ul class="checks">
+          <li>Single sign-on with OpenID Connect, and SCIM provisioning from your identity provider</li>
+          <li>Hash-chained audit log, streamed to your SIEM, with SOC 2 and ISO 27001 evidence mapping</li>
+          <li>Per-phase network allowlists, inside limits your admins set for each team</li>
+          <li>Credentials encrypted at rest; every member keeps their own</li>
+          <li>Undo for reversible writes, break-glass access and regular access reviews</li>
+          <li>Sandboxes capped and cleaned up automatically, even after a crash</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Get started -->
+    <section class="section section-alt" id="start">
+      <div class="wrap start">
+        <div>
+          <p class="eyebrow">Get started</p>
+          <h2>Run it on your own server</h2>
+          <p>A Linux host with Docker 28 or later. 2 vCPU and 4 GB of memory is the minimum; 4 vCPU and 8 GB is recommended for sandboxed build and fix steps. The server guide covers requirements, single sign-on, HTTPS, upgrades and backups.</p>
+          <div class="cta">
+            <a class="btn" href="https://github.com/SudoDevStudio/dittoly/blob/main/docs/server.md">Read the server guide</a>
+            <a class="btn btn-ghost" href="https://github.com/SudoDevStudio/dittoly">View on GitHub</a>
+          </div>
+        </div>
+        <pre class="terminal" aria-label="Commands to start Dittoly"><code><span class="c"># get the code and configure</span>
+git clone https://github.com/SudoDevStudio/dittoly.git dittoly
+cd dittoly && cp .env.example .env
+
+<span class="c"># start Dittoly, PostgreSQL and RabbitMQ</span>
+docker compose up -d --build
+
+<span class="c"># create the first admin</span>
+docker compose exec dittoly \
+  node dist/src/cli/bootstrap.js admin</code></pre>
+      </div>
+    </section>
+    <!-- Docs: the five setup steps and every guide (docs.html) -->
+    <section class="section" id="docs">
+      <div class="wrap">
+        <p class="eyebrow">Documentation</p>
+        <h2>Everything you need, step by step</h2>
+        <p class="lede">Set up your first module and Flow in five steps, then find a short guide for each feature: what it is, when to use it and exactly what to click.</p>
+        <ol class="quickstart">
+          <li><a href="docs.html#install-local"><span class="step-n">1</span><b>Install and sign in</b><span>On your computer or on a server, with Docker.</span></a></li>
+          <li><a href="docs.html#module"><span class="step-n">2</span><b>Approve a module</b><span>Describe the app connection; AI drafts it, the sandbox tests it, you approve.</span></a></li>
+          <li><a href="docs.html#credentials"><span class="step-n">3</span><b>Store your credentials</b><span>Paste each app token once; it is encrypted and only used by your runs.</span></a></li>
+          <li><a href="docs.html#flow"><span class="step-n">4</span><b>Create a Flow</b><span>Describe the process or build it on the canvas, then approve the version.</span></a></li>
+          <li><a href="docs.html#run"><span class="step-n">5</span><b>Run it</b><span>Run it now, on a schedule, from a URL or from your AI assistant.</span></a></li>
+        </ol>
+        <div class="doc-groups">
+          <div class="doc-group">
+            <h3>Setup</h3>
+            <ul>
+              <li><a href="docs.html#install-local">Install on your computer</a><span>Run Dittoly on your own machine. You are the only user, and admin and approver at once.</span></li>
+              <li><a href="docs.html#install-server">Run it on a server for a team</a><span>One shared Dittoly for your team, with Docker: Dittoly, PostgreSQL and RabbitMQ. People sign in with your single sign-on.</span></li>
+              <li><a href="docs.html#connect-ai">Connect your AI</a><span>The AI drafts modules and Flows from plain words. It uses your organization's own key, and data goes only to the provider you choose.</span></li>
+              <li><a href="docs.html#credentials">Store your credentials</a><span>Each person stores their own app tokens once. A run you start uses your access and nobody else's.</span></li>
+            </ul>
+          </div>
+          <div class="doc-group">
+            <h3>Modules and Flows</h3>
+            <ul>
+              <li><a href="docs.html#module">Create a module</a><span>A module is how Dittoly talks to one app, for example posting to Slack. It may only reach the hosts it declares.</span></li>
+              <li><a href="docs.html#flow">Create a Flow</a><span>A Flow is a process across your apps: steps that call module actions, ask people, wait or check pages.</span></li>
+              <li><a href="docs.html#visual">Build a Flow visually</a><span>Build or change a Flow by hand on a canvas, without an AI.</span></li>
+              <li><a href="docs.html#super-flows">Connect Flows into a Super Flow</a><span>A Super Flow runs other approved Flows, in stages. The Flows in one stage run at the same time.</span></li>
+              <li><a href="docs.html#run">Run a Flow</a><span>Run it by hand, on a schedule, from another system, or for each new item.</span></li>
+            </ul>
+          </div>
+          <div class="doc-group">
+            <h3>AI and apps</h3>
+            <ul>
+              <li><a href="docs.html#mcp">Use Flows from your AI assistant</a><span>Claude, ChatGPT, Copilot and other assistants that speak MCP can run your approved Flows as tools, as you, with your access.</span></li>
+              <li><a href="docs.html#apps">Build an app for your team</a><span>An app is a set of pages over your team's approved Flows: forms, tables, cards, an inbox and a runs list.</span></li>
+              <li><a href="docs.html#plans">Turn a PDF into Flows</a><span>Upload a document describing what you want automated. Dittoly breaks it down and drafts the modules and Flows.</span></li>
+              <li><a href="docs.html#git">Keep everything in git</a><span>Dittoly writes what people approve to a git repository, and changes merged in git come back as versions that wait for approval.</span></li>
+              <li><a href="docs.html#export">Export an app that runs on its own</a><span>Package approved Flows as a TypeScript project with no database and no connection back to Dittoly.</span></li>
+            </ul>
+          </div>
+          <div class="doc-group">
+            <h3>Admin and safety</h3>
+            <ul>
+              <li><a href="docs.html#rules">Set approval rules and policies</a><span>Rules decide who must approve what, when runs may start and where modules may connect.</span></li>
+              <li><a href="docs.html#audit">Audit log and SIEM</a><span>Every action is in a hash-chained audit log. Dittoly can stream it, as it happens, to your SIEM.</span></li>
+              <li><a href="docs.html#scim">Single sign-on and SCIM</a><span>People sign in with your identity provider, which can also create, update and offboard them, and turn groups into teams.</span></li>
+              <li><a href="docs.html#undo">Undo what a run changed</a><span>Reverse what a Flow run or an AI agent changed, after an approver signs off.</span></li>
+            </ul>
+          </div>
+        </div>
+        <p class="cta"><a class="btn" href="docs.html">Open the guides</a> <a class="btn btn-ghost" href="https://github.com/SudoDevStudio/dittoly/tree/main/docs">Full reference</a></p>
+      </div>
+    </section>
+
+    <!-- Questions: plain answers for people and for search and AI answer engines -->
+    <section class="section section-alt" id="faq">
+      <div class="wrap faq">
+        <p class="eyebrow">Questions</p>
+        <h2>Frequently asked questions</h2>
+          <details>
+            <summary><h3>What is Dittoly?</h3></summary>
+            <p>Dittoly is self-hosted orchestration software. You describe a process across your apps in plain language, AI drafts it as a Flow from approved modules, a person approves that exact version, and the engine runs it with each member&#x27;s own access.</p>
+          </details>
+          <details>
+            <summary><h3>How is Dittoly different from Claude, Codex or other AI models?</h3></summary>
+            <p>It is a different kind of tool. Claude, Codex and other AI models and assistants answer questions and do tasks when you ask them. Dittoly is orchestration software on your own servers that turns a repeatable process into a Flow: AI drafts it, a person approves that exact version, and the engine runs it the same way every time, with each member&#x27;s own access and a full audit trail. It works with these models rather than replacing them: Dittoly uses Anthropic, OpenAI or Ollama models to draft and for AI steps, and it can give approved Flows to Claude, ChatGPT or Copilot as tools over MCP.</p>
+          </details>
+          <details>
+            <summary><h3>Does Dittoly use AI tokens every time a Flow runs?</h3></summary>
+            <p>No. AI is used once, to draft the modules and the Flow. After that, steps that call your apps run as code, without a model, so they spend no tokens and give the same result for the same input. Tokens are spent only by AI steps you choose to keep, which have pinned models and cost caps, and the Insights page shows the tokens and money each Flow saved.</p>
+          </details>
+          <details>
+            <summary><h3>Is Dittoly free and open source?</h3></summary>
+            <p>Yes. Dittoly is released under the Apache License 2.0, and you run it on your own infrastructure.</p>
+          </details>
+          <details>
+            <summary><h3>Where does Dittoly run, and where does my data go?</h3></summary>
+            <p>Dittoly runs on your own servers with Docker, alongside PostgreSQL and RabbitMQ. Your data stays on your infrastructure. Code that Dittoly builds and tests runs in locked-down containers that cannot reach Dittoly, its database or your network, only the hosts each step declares.</p>
+          </details>
+          <details>
+            <summary><h3>What do I need to run Dittoly?</h3></summary>
+            <p>A Linux host with Docker Engine 28 or later and the Compose v2 plugin. The minimum is 2 vCPU and 4 GB of memory; 4 vCPU and 8 GB is recommended for sandboxed build and fix steps.</p>
+          </details>
+          <details>
+            <summary><h3>How does Dittoly keep AI-drafted automation safe?</h3></summary>
+            <p>Nothing AI drafts runs until a person approves it. The approver sees what the Flow can read, write and reach, policies can require more than one approver, and the engine runs only the approved version. Content from outside, such as a prompt injection, can never reach a write on its own.</p>
+          </details>
+          <details>
+            <summary><h3>Which languages does error-to-fix support?</h3></summary>
+            <p>Java, Kotlin, Python, Go, Rust, C#, Ruby, PHP and TypeScript. A fix arrives as a draft pull request with a regression test that fails before the fix and passes after.</p>
+          </details>
+          <details>
+            <summary><h3>Does Dittoly work with AI assistants like Claude, ChatGPT or Copilot?</h3></summary>
+            <p>Yes. Dittoly can expose approved Flows as tools over the Model Context Protocol (MCP), with each person signed in as themselves and with scoped, expiring agent identities.</p>
+          </details>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer-inner">
+      <span>Dittoly · Apache License 2.0</span>
+      <span><a href="docs.html">Guides</a> · <a href="https://github.com/SudoDevStudio/dittoly/tree/main/docs">Full reference</a></span>
+    </div>
+  </footer>
+
+  <script src="script.js" defer></script>
+</body>
+</html>

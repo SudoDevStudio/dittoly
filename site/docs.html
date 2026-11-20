@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dittoly guides: set up modules, Flows, apps and more</title>
+  <meta name="description" content="Short, step-by-step guides for Dittoly: install, connect your AI, create modules and Flows, run them, use them from AI assistants, apps, git sync and governance.">
+  <meta name="robots" content="index, follow">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f7f9fc" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#041424" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Dittoly">
+  <meta property="og:title" content="Dittoly guides">
+  <meta property="og:description" content="Short, step-by-step guides for every Dittoly feature.">
+  <!-- SITE-URL: run `site/set-url.sh https://your.domain/` to switch these on.
+  <link rel="canonical" href="__SITE_URL__docs.html">
+  <meta property="og:url" content="__SITE_URL__docs.html">
+  <meta property="og:image" content="__SITE_URL__og-image.png">
+  SITE-URL -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="guides-page">
+  <a class="skip" href="#guides">Skip to the guides</a>
+
+  <header class="nav">
+    <div class="wrap nav-inner">
+      <a class="brand" href="index.html" aria-label="Dittoly home">
+        <svg viewBox="9 11 46 46" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"><path d="M22 18 16 34M36 18 30 34"/><circle cx="44" cy="44" r="6" fill="currentColor" stroke="none" opacity=".55"/></svg>
+        Dittoly
+      </a>
+      <nav aria-label="Main">
+        <a href="index.html#why">Why</a>
+        <a href="index.html#features">Features</a>
+        <a href="docs.html" aria-current="page">Guides</a>
+        <a href="index.html#faq">FAQ</a>
+        <a href="index.html#start" class="btn btn-small">Get started</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap guides-layout" id="guides">
+    <aside class="guides-side" aria-label="Guides">
+      <label class="search" for="guide-search">
+        <span class="sr-only">Search the guides</span>
+        <input id="guide-search" type="search" placeholder="Search guides" autocomplete="off">
+      </label>
+      <details class="side-toggle" open>
+        <summary>All guides</summary>
+      <nav class="side-nav">
+        <p class="side-group">Setup</p>
+        <ul>
+          <li><a href="#install-local">Install on your computer</a></li>
+          <li><a href="#install-server">Run it on a server for a team</a></li>
+          <li><a href="#connect-ai">Connect your AI</a></li>
+          <li><a href="#credentials">Store your credentials</a></li>
+        </ul>
+        <p class="side-group">Modules and Flows</p>
+        <ul>
+          <li><a href="#module">Create a module</a></li>
+          <li><a href="#flow">Create a Flow</a></li>
+          <li><a href="#visual">Build a Flow visually</a></li>
+          <li><a href="#super-flows">Connect Flows into a Super Flow</a></li>
+          <li><a href="#run">Run a Flow</a></li>
+        </ul>
+        <p class="side-group">AI and apps</p>
+        <ul>
+          <li><a href="#mcp">Use Flows from your AI assistant</a></li>
+          <li><a href="#apps">Build an app for your team</a></li>
+          <li><a href="#plans">Turn a PDF into Flows</a></li>
+          <li><a href="#git">Keep everything in git</a></li>
+          <li><a href="#export">Export an app that runs on its own</a></li>
+        </ul>
+        <p class="side-group">Admin and safety</p>
+        <ul>
+          <li><a href="#rules">Set approval rules and policies</a></li>
+          <li><a href="#audit">Audit log and SIEM</a></li>
+          <li><a href="#scim">Single sign-on and SCIM</a></li>
+          <li><a href="#undo">Undo what a run changed</a></li>
+          <li><a href="#code-runner">Build and test code on another machine</a></li>
+        </ul>
+      </nav>
+      </details>
+    </aside>
+
+    <div class="guides-main">
+      <p class="eyebrow">Guides</p>
+      <h1>Set up Dittoly, step by step</h1>
+      <p class="lede">Each guide says what a feature is, when to use it and exactly what to click. For every detail, follow <b>Full reference</b> at the end of a guide.</p>
+      <p class="no-results" id="no-results" hidden>No guide matches that. Try another word, or browse the <a href="https://github.com/SudoDevStudio/dittoly/tree/main/docs">full reference</a>.</p>
+
+      <h2 class="group-title" id="setup">Setup</h2>
+      <article class="guide" id="install-local">
+        <h3>Install on your computer</h3>
+        <p class="what">Run Dittoly on your own machine. You are the only user, and admin and approver at once.</p>
+        <p class="when"><b>Use it when</b> you want to try Dittoly, or automate your own work.</p>
+        <ol class="steps-list">
+          <li>Install Node.js 26.</li>
+          <li>Get the code and build it: <code>git clone https://github.com/SudoDevStudio/dittoly dittoly &amp;&amp; cd dittoly</code>, then <code>npm ci &amp;&amp; npm run build</code>.</li>
+          <li>Start it: <code>node bin/dittoly.mjs</code>.</li>
+          <li>Open the sign-in link it prints (<code>http://127.0.0.1:8484</code>).</li>
+        </ol>
+        <p class="tip"><b>Tip</b> Your data and the key to your credentials live in <code>~/.dittoly</code>. Back them up with <code>node bin/dittoly.mjs backup</code>; start afresh with <code>node bin/dittoly.mjs cleanup</code> (keeps your credentials).</p>
+        <a class="ref" href="https://github.com/SudoDevStudio/dittoly/blob/main/docs/install.md#nodejs">Full reference →</a>
+      </article>
+      <article class="guide" id="install-server">
+        <h3>Run it on a server for a team</h3>
+        <p class="what">One shared Dittoly for your team, with Docker: Dittoly, PostgreSQL and RabbitMQ. People sign in with your single sign-on.</p>
+        <p class="when"><b>Use it when</b> several people will build, approve and run Flows together.</p>
+        <ol class="steps-list">
+          <li>Prepare a Linux host with Docker Engine 28 or later and the Compose plugin. Recommended: 4 vCPU and 8 GB of memory.</li>
+          <li>Get the code and copy the settings: <code>git clone https://github.com/SudoDevStudio/dittoly.git dittoly</code>, <code>cd dittoly</code>, <code>cp .env.example .env</code>.</li>
+          <li>In <code>.env</code>, set <code>DITTOLY_MASTER_KEY</code> (<code>openssl rand -base64 32</code>), <code>DITTOLY_PUBLIC_URL</code>, your identity provider (<code>DITTOLY_OIDC_ISSUER</code>, client id and secret) and your AI provider.</li>
+          <li>In <code>docker-compose.yml</code>, set <code>DITTOLY_MODE: shared</code> and bind the port to <code>127.0.0.1</code> behind your HTTPS reverse proxy.</li>
+          <li>Start it: <code>docker compose up -d --build</code>, then create the first admin: <code>docker compose exec dittoly node dist/src/cli/bootstrap.js admin</code>.</li>
+          <li>Give people roles in <b>Members &amp; Access</b> after they first sign in: member, approver or admin.</li>
+        </ol>
+        <p class="tip"><b>Tip</b> Back up the master key apart from the database and never change it by hand: it encrypts every stored credential.</p>
+        <a class="ref" href="https://github.com/SudoDevStudio/dittoly/blob/main/docs/server.md">Full reference →</a>
+      </article>
+      <article class="guide" id="connect-ai">
+        <h3>Connect your AI</h3>
+        <p class="what">The AI drafts modules and Flows from plain words. It uses your organization's own key, and data goes only to the provider you choose.</p>
+        <p class="when"><b>Use it when</b> you want to describe modules and Flows instead of building them by hand. It is optional.</p>
+        <ol class="steps-list">
+          <li>Choose a provider: <code>anthropic</code>, <code>openai</code> or <code>ollama</code> (on your own computer also <code>claude-cli</code> or <code>codex-cli</code>).</li>
+          <li>Set <code>DITTOLY_AI_PROVIDER</code> and its key (for example <code>ANTHROPIC_API_KEY</code>) where Dittoly runs, or start the local app with <code>--ai &lt;provider&gt;</code>.</li>
+          <li>Restart Dittoly.</li>
+        </ol>
+        <p class="tip"><b>Tip</b> Without an AI you can still build Flows on the visual canvas and take modules from the marketplace.</p>
+        <a class="ref" href="https://github.com/SudoDevStudio/dittoly/blob/main/docs/getting-started.md#2-connect-your-ai-optional">Full reference →</a>
+      </article>
+      <article class="guide" id="credentials">
+        <h3>Store your credentials</h3>
+        <p class="what">Each person stores their own app tokens once. A run you start uses your access and nobody else's.</p>
+        <p class="when"><b>Use it when</b> a module you will use needs a token, such as a Slack or GitLab token.</p>
+        <ol class="steps-list">
+          <li>Open <b>My credentials</b>.</li>
+          <li>Under <b>Needed by approved modules</b>, find the app. It says exactly what to paste, for example "Slack token with chat:write".</li>
+          <li>Click <b>Add</b>, paste the token and <b>Save</b>.</li>
+        </ol>
+        <p class="tip"><b>Tip</b> Tokens are encrypted and never shown again, not even to you. A team admin can also store one shared service account for an app on the team's page, under <b>Teams</b>.</p>
+        <a class="ref" href="https://github.com/SudoDevStudio/dittoly/blob/main/docs/getting-started.md#4-store-your-credentials">Full reference →</a>
+      </article>
+      <h2 class="group-title" id="modules-and-flows">Modules and Flows</h2>
+      <article class="guide" id="module">
+        <h3>Create a module</h3>
+        <p class="what">A module is how Dittoly talks to one app, for example posting to Slack. It may only reach the hosts it declares.</p>
+        <p class="when"><b>Use it when</b> a Flow needs an app that no approved module covers yet.</p>
+        <ol class="steps-list">
+          <li>Open <b>Modules</b> and describe what it should do, for example "post a message to a Slack channel". You can add the API's docs or spec as a source.</li>
+          <li>Answer any questions the AI asks. It drafts the module in TypeScript and tests it in a sandbox.</li>
+          <li>If something is off, ask for a change; each revision is a new version.</li>
+          <li>Send it for review. An admin sees the hosts it may reach, which actions change data and whose token it uses, then clicks <b>Approve</b>.</li>
+        </ol>
+        <p class="tip"><b>Tip</b> You can also take a module from the <b>Marketplace</b>, or import the tools of an MCP server. Some modules need an organization setting, such as your Jira site; the module page asks for it.</p>
+        <a class="ref" href="https://github.com/SudoDevStudio/dittoly/blob/main/docs/getting-started.md#3-approve-a-module">Full reference →</a>
+      </article>
+      <article class="guide" id="flow">
+        <h3>Create a Flow</h3>
+        <p class="what">A Flow is a process across your apps: steps that call module actions, ask people, wait or check pages.</p>
+        <p class="when"><b>Use it when</b> you want something to happen the same way every time.</p>
+        <ol class="steps-list">
+          <li>Open <b>Flows</b> and describe it, for example "when a release is approved, merge the ready merge requests and tell the channel". The AI drafts it from approved modules.</li>
+          <li>Read <b>What it does</b>: every step that changes data is marked.</li>
+          <li>Click <b>Create Flow</b> to save a draft.</li>
+          <li>An approver clicks <b>Approve this version</b>. On a shared server nobody approves their own work.</li>
+        </ol>
+        <p class="tip"><b>Tip</b> Any later change makes a new version that needs approval again, so what runs is always what someone approved.</p>
+        <a class="ref" href="https://github.com/SudoDevStudio/dittoly/blob/main/docs/getting-started.md#5-create-and-approve-a-flow">Full reference →</a>
+      </article>
+      <article class="guide" id="visual">
+        <h3>Build a Flow visually</h3>
+        <p class="what">Build or change a Flow by hand on a canvas, without an AI.</p>
+        <p class="when"><b>Use it when</b> you know the steps, or no AI is connected.</p>
+        <ol class="steps-list">
+          <li>Open <b>Flows → Build a Flow visually</b>, or <b>Edit visually</b> on a Flow you own.</li>
+          <li>Drag actions from the <b>Palette</b> on the left onto the canvas (or press <b>+</b>). <i>Sign-off</i> and <i>Wait</i> are there too.</li>
+          <li>Select a step and fill in its form on the right. <b>Use…</b> fills a field from the run form or from an earlier step's output.</li>
+          <li>Add the <b>Run form</b> inputs people fill in, then save. The draft still needs an approver.</li>
+        </ol>
+        <p class="tip"><b>Tip</b> Problems are shown under the editor before you save, the same checks as any other Flow.</p>
+        <a class="ref" href="https://github.com/SudoDevStudio/dittoly/blob/main/docs/visual-editor.md">Full reference →</a>
+      </article>
+      <article class="guide" id="super-flows">
+        <h3>Connect Flows into a Super Flow</h3>
+        <p class="what">A Super Flow runs other approved Flows, in stages. The Flows in one stage run at the same time.</p>
+        <p class="when"><b>Use it when</b> a bigger process is made of Flows you already have.</p>
+        <ol class="steps-list">
+          <li>Open <b>Super Flows</b> in the sidebar.</li>
+          <li>Pick approved Flows and put them in stages. Stages run one after another.</li>
+          <li>Each child's inputs start as Super Flow inputs of the same name, so a shared value is asked once. Or use a result from an earlier stage.</li>
+          <li>Save and approve it like any Flow.</li>
+        </ol>
+        <p class="tip"><b>Tip</b> Or let the <b>AI Flow Synthesizer</b> do it: "run Ticket QA, then notify Slack and Teams together".</p>
+        <a class="ref" href="https://github.com/SudoDevStudio/dittoly/blob/main/docs/super-flows.md">Full reference →</a>
+      </article>
+      <article class="guide" id="run">
+        <h3>Run a Flow</h3>
+        <p class="what">Run it by hand, on a schedule, from another system, or for each new item.</p>
+        <p class="when"><b>Use it when</b> the Flow is approved.</p>
+        <ol class="steps-list">
+          <li>On the Flow's page, read <b>Before you run</b>: what each step changes and whose access it uses.</li>
+          <li>Fill in the run form and try a <b>Dry run</b> first: it reads for real and skips sign-offs and changes. Then <b>Run now</b>.</li>
+          <li>To repeat it, use <b>Schedules</b> → <b>Add schedule</b> (a cron time and time zone).</li>
+          <li>To start it from CI or a script, use <b>Flow URLs</b> → <b>Create URL</b>; to start it for each new issue, email or file, add a <b>Watch</b>.</li>
+        </ol>
+        <p class="tip"><b>Tip</b> The run page's <b>Result</b> panel says in plain words how the run ended, or what it is waiting for.</p>
+        <a class="ref" href="https://github.com/SudoDevStudio/dittoly/blob/main/docs/getting-started.md#6-run-it">Full reference →</a>
+      </article>
+      <h2 class="group-title" id="ai-and-apps">AI and apps</h2>
+      <article class="guide" id="mcp">
+        <h3>Use Flows from your AI assistant</h3>
+        <p class="what">Claude, ChatGPT, Copilot and other assistants that speak MCP can run your approved Flows as tools, as you, with your access.</p>
+        <p class="when"><b>Use it when</b> you want an assistant to do a task the same way every time, without spending tokens on it again.</p>
+        <ol class="steps-list">
+          <li>On the Flow's page, click <b>Offer to AI assistants</b>.</li>
+          <li>On the <b>AI Agents</b> page, make an agent: a name, the Flows it may use and how long it works. Copy its token; it is shown once.</li>
+          <li>Connect the assistant to <code>https://&lt;your Dittoly&gt;/mcp</code> with the header <code>Authorization: Bearer &lt;token&gt;</code>.</li>
+        </ol>
+        <p class="tip"><b>Tip</b> Just did a task with your assistant? Ask it to "save this as a Flow". It drafts the Flow, and people approve it as usual.</p>
+        <a class="ref" href="https://github.com/SudoDevStudio/dittoly/blob/main/docs/mcp-server.md#turning-it-on">Full reference →</a>
+      </article>
+      <article class="guide" id="apps">
+        <h3>Build an app for your team</h3>
+        <p class="what">An app is a set of pages over your team's approved Flows: forms, tables, cards, an inbox and a runs list.</p>
+        <p class="when"><b>Use it when</b> your team should run Flows from simple pages, with the team's shared keys.</p>
+        <ol class="steps-list">
+          <li>Open <b>Apps</b> and pick the team's approved Flows the app runs.</li>
+          <li>Make the layout: leave the description empty for a page per Flow, or describe it ("an order desk with product cards and a Buy button") and the AI drafts the pages.</li>
+          <li>Edit titles, pages, colours and fonts; a sketch follows every change.</li>
+          <li>Save, and an approver approves the version. <b>Open app</b> opens it for the team.</li>
+        </ol>
+        <p class="tip"><b>Tip</b> Runs from an app use the team's shared credentials, so everyone gets the same results whoever clicks.</p>
+        <a class="ref" href="https://github.com/SudoDevStudio/dittoly/blob/main/docs/apps.md#building-one">Full reference →</a>
+      </article>
+      <article class="guide" id="plans">
+        <h3>Turn a PDF into Flows</h3>
+        <p class="what">Upload a document describing what you want automated. Dittoly breaks it down and drafts the modules and Flows.</p>
+        <p class="when"><b>Use it when</b> your process is already written down.</p>
+        <ol class="steps-list">
+          <li>Open <b>Plans from PDF</b> and upload the PDF (text, not scanned images).</li>
+          <li>Answer the questions the AI asks (which chat tool, who approves, how often...), or let it decide.</li>
+          <li>New modules go to an admin for review. Each Flow is drafted once its modules are approved.</li>
+          <li>Approve the drafted Flows as usual.</li>
+        </ol>
+        <p class="tip"><b>Tip</b> The AI reuses approved modules wherever they already cover a step.</p>
+        <a class="ref" href="https://github.com/SudoDevStudio/dittoly/blob/main/docs/plans.md">Full reference →</a>
+      </article>
+      <article class="guide" id="git">
+        <h3>Keep everything in git</h3>
+        <p class="what">Dittoly writes what people approve to a git repository, and changes merged in git come back as versions that wait for approval.</p>
+        <p class="when"><b>Use it when</b> you want reviews, history and rollbacks the way the rest of your code has them.</p>
+        <ol class="steps-list">
+          <li>An admin connects a repository in <b>Members &amp; Access → Git sync</b> (GitHub, GitLab or any git over HTTPS), with a token that may write.</li>
+          <li>Click <b>Export everything approved now</b> for the first sync. Modules arrive as TypeScript (<code>module.ts</code>), Flows and apps as JSON.</li>
+          <li>From then on, each approval opens a pull request. Merge it.</li>
+          <li>Edit in git and merge: Dittoly reads the branch every 10 minutes and the change waits for approval.</li>
+        </ol>
+        <p class="tip"><b>Tip</b> In the repository, <code>npm run check</code> type-checks the modules and <code>npm run build</code> compiles them the way Dittoly does.</p>
+        <a class="ref" href="https://github.com/SudoDevStudio/dittoly/blob/main/docs/git-sync.md">Full reference →</a>
+      </article>
+      <article class="guide" id="export">
+        <h3>Export an app that runs on its own</h3>
+        <p class="what">Package approved Flows as a TypeScript project with no database and no connection back to Dittoly.</p>
+        <p class="when"><b>Use it when</b> a Flow should run somewhere else: as an API, a small web app or your own frontend.</p>
+        <ol class="steps-list">
+          <li>Open <b>Export an app</b> (under <b>Share</b>; admins and approvers).</li>
+          <li>Choose the kind: <b>Runner</b>, <b>Headless API</b>, <b>API + simple UI</b>, or <b>Your framework</b> (React, Next.js, Angular, Astro or Vue).</li>
+          <li>For each Flow, choose who may start it: holders of the app's API token, or anyone.</li>
+          <li>Download the project and run it; it is configured by environment variables.</li>
+        </ol>
+        <p class="tip"><b>Tip</b> An app built under <b>Apps</b> exports with its own layout and look: use <b>Export</b> on its page.</p>
+        <a class="ref" href="https://github.com/SudoDevStudio/dittoly/blob/main/docs/app-export.md">Full reference →</a>
+      </article>
+      <h2 class="group-title" id="admin-and-safety">Admin and safety</h2>
+      <article class="guide" id="rules">
+        <h3>Set approval rules and policies</h3>
+        <p class="what">Rules decide who must approve what, when runs may start and where modules may connect.</p>
+        <p class="when"><b>Use it when</b> your organization needs a second approver, working hours or limits.</p>
+        <ol class="steps-list">
+          <li>Open <b>Members &amp; Access</b> (admins) and add a rule.</li>
+          <li>Pick a kind: several approvers for Flows that change data, allowed hosts for modules, runs only in working hours, a daily run limit per person, only a Flow's own team approves it, or reminders for waiting approvals.</li>
+          <li>Save. A refused action names the rule that stopped it.</li>
+        </ol>
+        <p class="tip"><b>Tip</b> Going on holiday? Pick a stand-in in <b>My credentials → When I'm away</b>.</p>
+        <a class="ref" href="https://github.com/SudoDevStudio/dittoly/blob/main/docs/governance.md#organization-rules">Full reference →</a>
+      </article>
+      <article class="guide" id="audit">
+        <h3>Audit log and SIEM</h3>
+        <p class="what">Every action is in a hash-chained audit log. Dittoly can stream it, as it happens, to your SIEM.</p>
+        <p class="when"><b>Use it when</b> security wants every change and run in Splunk, Datadog or another log platform.</p>
+        <ol class="steps-list">
+          <li>Open <b>Members &amp; Access → Stream audit events to a SIEM</b> (organization admins) and add a stream: Splunk, Datadog, any HTTPS collector, syslog over TLS or OpenTelemetry.</li>
+          <li>Start with new events from now on, or the whole history.</li>
+          <li>Click <b>Send a test event</b> to check the address and credentials.</li>
+        </ol>
+        <p class="tip"><b>Tip</b> Run inputs, outputs, credentials and AI prompts are never sent: they are not in the audit log either.</p>
+        <a class="ref" href="https://github.com/SudoDevStudio/dittoly/blob/main/docs/audit-streaming.md">Full reference →</a>
+      </article>
+      <article class="guide" id="scim">
+        <h3>Single sign-on and SCIM</h3>
+        <p class="what">People sign in with your identity provider, which can also create, update and offboard them, and turn groups into teams.</p>
+        <p class="when"><b>Use it when</b> you use Okta or Microsoft Entra ID and want access managed in one place.</p>
+        <ol class="steps-list">
+          <li>Set up sign-in with your provider when you install the server (OIDC).</li>
+          <li>Open <b>Members &amp; Access → Provisioning (SCIM)</b> and copy the SCIM base URL and a token.</li>
+          <li>In Okta or Entra, turn on provisioning with that URL and token, then assign people and push the groups that should be teams.</li>
+        </ol>
+        <p class="tip"><b>Tip</b> The guide has click-by-click steps for Okta and Microsoft Entra ID.</p>
+        <a class="ref" href="https://github.com/SudoDevStudio/dittoly/blob/main/docs/scim.md">Full reference →</a>
+      </article>
+      <article class="guide" id="undo">
+        <h3>Undo what a run changed</h3>
+        <p class="what">Reverse what a Flow run or an AI agent changed, after an approver signs off.</p>
+        <p class="when"><b>Use it when</b> an announcement went out a day early, or issues landed in the wrong project.</p>
+        <ol class="steps-list">
+          <li>Open the run (or the agent's calls on the <b>AI Agents</b> page) and choose what to reverse: by default every change that can still be reversed.</li>
+          <li>An approver signs off the request in their inbox. On a shared server nobody signs off their own.</li>
+          <li>The changes are reversed newest first, with the same person's access.</li>
+        </ol>
+        <p class="tip"><b>Tip</b> Only changes whose module declares how to reverse them can be undone; an email sent cannot.</p>
+        <a class="ref" href="https://github.com/SudoDevStudio/dittoly/blob/main/docs/undo.md#reversing">Full reference →</a>
+      </article>
+      <article class="guide" id="code-runner">
+        <h3>Build and test code on another machine</h3>
+        <p class="what">App and fix steps build, test and run your project's code on a separate code runner, so it never runs where Dittoly and its database are.</p>
+        <p class="when"><b>Use it when</b> you run fix or app steps and want project code kept off the Dittoly server.</p>
+        <ol class="steps-list">
+          <li>On the runner machine (Linux, Docker, Node.js 26): clone Dittoly, run <code>npm ci</code>, and make a token with <code>openssl rand -base64 32</code>.</li>
+          <li>In its <code>.env.runner</code>, set <code>DITTOLY_RUNNER_TOKEN</code> and your TLS certificate and key, then start it with <code>npm run runner</code>.</li>
+          <li>In Dittoly's <code>.env</code>, set <code>DITTOLY_CODE_RUNNER=remote</code>, <code>DITTOLY_RUNNER_URL</code> and the same token, then restart Dittoly.</li>
+          <li>Allow the runner's port only from the Dittoly machine.</li>
+        </ol>
+        <p class="tip"><b>Tip</b> To go back, set <code>DITTOLY_CODE_RUNNER=local</code>. Nothing else changes: the same Flows, sandboxes, destinations and evidence.</p>
+        <a class="ref" href="https://github.com/SudoDevStudio/dittoly/blob/main/docs/code-runner.md#set-up-the-runner-machine">Full reference →</a>
+      </article>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer-inner">
+      <span>Dittoly · Apache License 2.0</span>
+      <span><a href="https://github.com/SudoDevStudio/dittoly/tree/main/docs">Full reference</a></span>
+    </div>
+  </footer>
+
+  <script src="script.js" defer></script>
+</body>
+</html>

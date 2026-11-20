@@ -1,0 +1,24 @@
+/** Slack: post and delete messages (chat.postMessage, chat.delete). */
+const slack = base.http.client({ baseUrl: 'https://slack.com/api', credential: 'slack_token' });
+
+interface PostMessageInput { channel: string; text: string }
+interface DeleteMessageInput { channel: string; ts: string }
+interface MessageOutput { ts?: unknown }
+
+/** Slack answers most errors with HTTP 200 and ok: false. */
+const slackOk = { path: 'ok', equals: true, error: 'slack_rejected' };
+
+export const actions = {
+  async post_message(input: PostMessageInput, ctx: ModuleContext): Promise<MessageOutput> {
+    const data = await slack.post(ctx, '/chat.postMessage', { json: { channel: input.channel, text: input.text }, okWhen: slackOk });
+    return base.pick(data, { ts: 'ts' });
+  },
+  async delete_message(input: DeleteMessageInput, ctx: ModuleContext): Promise<MessageOutput> {
+    // Own code where the base's usual handling is not enough: "message_not_found" is a not_found.
+    const res = (await slack.post(ctx, '/chat.delete', { json: { channel: input.channel, ts: input.ts }, raw: true })) as HttpResponse;
+    if (!res.ok) base.fail(ctx, `http_${res.status}`, res.status === 429 || res.status >= 500);
+    const data = res.json() as { ok?: boolean; error?: string; ts?: string };
+    if (!data.ok) base.fail(ctx, data.error === 'message_not_found' ? 'not_found' : 'slack_rejected', data.error === 'ratelimited');
+    return { ts: data.ts };
+  },
+} satisfies ModuleActions;

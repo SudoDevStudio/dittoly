@@ -1,0 +1,72 @@
+{
+  "name": "slack-files",
+  "version": "1.0.0",
+  "title": "Slack messages with screenshots",
+  "description": "Posts a message to a Slack channel, with screenshots uploaded as files when there are any. Needs your Slack token (chat:write and files:write).",
+  "hosts": [
+    "slack.com",
+    "files.slack.com"
+  ],
+  "credentials": [
+    {
+      "id": "slack_token",
+      "service": "slack",
+      "label": "Slack token with chat:write and files:write",
+      "hosts": [
+        "slack.com"
+      ],
+      "placement": {
+        "type": "bearer"
+      }
+    }
+  ],
+  "actions": [
+    {
+      "name": "post",
+      "title": "Post a message",
+      "description": "Posts text to a channel; screenshots go up as files with the text as their comment.",
+      "effect": "write",
+      "credentials": [
+        "slack_token"
+      ],
+      "input": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "minLength": 1
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "screenshots": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "pattern": "^data:image/(jpeg|png);base64,"
+            }
+          }
+        },
+        "required": [
+          "channel",
+          "text"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "files"
+        ]
+      }
+    }
+  ]
+}

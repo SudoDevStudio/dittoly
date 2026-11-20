@@ -1,0 +1,20 @@
+/** Shop operations: orders in the shop database, mail to customers, commands to the packing line. */
+interface OrderInput { id: number }
+interface MailInput { to: string; subject: string; body: string }
+interface PackInput { station: string; id: number }
+
+export const actions = {
+  async get_order(input: OrderInput, ctx: ModuleContext) {
+    const row = await base.db.first(ctx, 'shop', 'find_order', { order_id: input.id });
+    return base.pick(row, { id: 'id', status: 'status' });
+  },
+  async ship_order(input: OrderInput, ctx: ModuleContext) {
+    return { count: await base.db.count(ctx, 'shop', 'ship', { order_id: input.id }) };
+  },
+  async mail_customer(input: MailInput, ctx: ModuleContext) {
+    return base.mail.send(ctx, 'mail', { to: input.to, subject: input.subject, text: input.body });
+  },
+  async pack(input: PackInput, ctx: ModuleContext) {
+    return base.mqtt.publish(ctx, 'line', { topic: 'packing/{station}/commands', vars: input, message: { action: 'pack', order: input.id }, qos: 1 });
+  },
+} satisfies ModuleActions;

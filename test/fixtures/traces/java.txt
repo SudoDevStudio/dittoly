@@ -1,0 +1,13 @@
+Exception in thread "main" java.lang.NullPointerException: Cannot invoke "java.lang.Integer.intValue()" because the return value of "com.acme.shop.Cart$Item.qty()" is null
+	at com.acme.shop.Cart.lambda$total$0(Cart.java:6)
+	at java.base/java.util.stream.ReferencePipeline$4$1.accept(ReferencePipeline.java:231)
+	at java.base/java.util.Collections$2.tryAdvance(Collections.java:5182)
+	at java.base/java.util.Collections$2.forEachRemaining(Collections.java:5190)
+	at java.base/java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:570)
+	at java.base/java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:560)
+	at java.base/java.util.stream.ReduceOps$ReduceOp.evaluateSequential(ReduceOps.java:921)
+	at java.base/java.util.stream.AbstractPipeline.evaluate(AbstractPipeline.java:265)
+	at java.base/java.util.stream.IntPipeline.reduce(IntPipeline.java:517)
+	at java.base/java.util.stream.IntPipeline.sum(IntPipeline.java:475)
+	at com.acme.shop.Cart.total(Cart.java:6)
+	at com.acme.shop.Cart.main(Cart.java:8)

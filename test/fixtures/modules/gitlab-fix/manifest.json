@@ -1,0 +1,249 @@
+{
+  "name": "gitlab-fix",
+  "version": "1.1.0",
+  "title": "GitLab fix branches and draft merge requests",
+  "description": "Pushes a verified fix to GitLab: finds an open merge request by branch, reads files, creates a dittoly/fix-* branch from a commit, commits several file changes at once, opens a draft merge request and comments on it. Needs your GitLab personal access token (api scope).",
+  "settings": [
+    {
+      "id": "host",
+      "type": "host",
+      "label": "GitLab host (gitlab.com, or your own GitLab: change the pattern to its host)",
+      "help": "The host of your GitLab: gitlab.com, or your own GitLab's host (then change the pattern to it before approving).",
+      "example": "gitlab.example.com",
+      "pattern": "gitlab.com",
+      "default": "gitlab.com"
+    }
+  ],
+  "hosts": ["{{settings.host}}"],
+  "credentials": [
+    {
+      "id": "gitlab_token",
+      "service": "gitlab",
+      "label": "GitLab personal access token",
+      "hosts": ["{{settings.host}}"],
+      "placement": { "type": "header", "name": "PRIVATE-TOKEN", "prefix": "" },
+      "scopes": ["api"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "find_open_mr_by_branch",
+      "title": "Find the merge request of a fix branch",
+      "description": "Looks up merge requests whose source is this dittoly/fix-* branch: the open one (if any) and the newest in any state (merged, closed).",
+      "effect": "read",
+      "credentials": ["gitlab_token"],
+      "input": {
+        "type": "object",
+        "properties": {
+          "project": { "type": "string", "maxLength": 255, "pattern": "^([0-9]{1,12}|[A-Za-z0-9_][A-Za-z0-9_.-]*(/[A-Za-z0-9_][A-Za-z0-9_.-]*){1,5})$" },
+          "branch": { "type": "string", "pattern": "^dittoly/fix-[a-z0-9-]{4,64}$" }
+        },
+        "required": ["project", "branch"],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "found": { "type": "boolean" },
+          "mr": { "type": ["object", "null"], "properties": { "iid": { "type": "integer" }, "url": { "type": "string" }, "state": { "type": "string" }, "draft": { "type": "boolean" }, "title": { "type": "string" } } },
+          "latest": { "type": ["object", "null"], "properties": { "iid": { "type": "integer" }, "url": { "type": "string" }, "state": { "type": "string" }, "draft": { "type": "boolean" }, "title": { "type": "string" } } }
+        },
+        "required": ["found", "mr", "latest"]
+      }
+    },
+    {
+      "name": "get_file",
+      "title": "Read a file",
+      "description": "Reads one text file of the repository at a branch, tag or commit (trimmed to maxChars).",
+      "effect": "read",
+      "credentials": ["gitlab_token"],
+      "input": {
+        "type": "object",
+        "properties": {
+          "project": { "type": "string", "maxLength": 255, "pattern": "^([0-9]{1,12}|[A-Za-z0-9_][A-Za-z0-9_.-]*(/[A-Za-z0-9_][A-Za-z0-9_.-]*){1,5})$" },
+          "path": { "type": "string", "maxLength": 300, "pattern": "^\\.?[A-Za-z0-9_@+-][A-Za-z0-9_.@+-]*(/\\.?[A-Za-z0-9_@+-][A-Za-z0-9_.@+-]*){0,30}$" },
+          "ref": { "type": "string", "maxLength": 200, "pattern": "^[A-Za-z0-9_][A-Za-z0-9._/-]{0,199}$" },
+          "maxChars": { "type": "integer", "minimum": 100, "maximum": 200000, "default": 100000 }
+        },
+        "required": ["project", "path", "ref"],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" },
+          "content": { "type": "string" },
+          "size": { "type": "integer" },
+          "truncated": { "type": "boolean" },
+          "blobId": { "type": "string" },
+          "lastCommitId": { "type": "string" }
+        },
+        "required": ["path", "content", "size", "truncated"]
+      }
+    },
+    {
+      "name": "create_branch",
+      "title": "Create a fix branch",
+      "description": "Creates a dittoly/fix-* branch from a commit sha (or a branch). A branch already at that commit (from a call whose answer was lost) is reused.",
+      "effect": "write",
+      "idempotent": true,
+      "credentials": ["gitlab_token"],
+      "input": {
+        "type": "object",
+        "properties": {
+          "project": { "type": "string", "maxLength": 255, "pattern": "^([0-9]{1,12}|[A-Za-z0-9_][A-Za-z0-9_.-]*(/[A-Za-z0-9_][A-Za-z0-9_.-]*){1,5})$" },
+          "branch": { "type": "string", "pattern": "^dittoly/fix-[a-z0-9-]{4,64}$" },
+          "ref": { "type": "string", "maxLength": 200, "pattern": "^[A-Za-z0-9_][A-Za-z0-9._/-]{0,199}$" }
+        },
+        "required": ["project", "branch", "ref"],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": { "branch": { "type": "string" }, "commit": { "type": "string" }, "url": { "type": "string" }, "reused": { "type": "boolean" } },
+        "required": ["branch", "commit"]
+      },
+      "undo": { "action": "delete_branch", "input": { "project": "{{ input.project }}", "branch": "{{ input.branch }}" } }
+    },
+    {
+      "name": "delete_branch",
+      "title": "Delete a fix branch",
+      "description": "Deletes a dittoly/fix-* branch (a branch that is already gone counts as deleted).",
+      "effect": "write",
+      "idempotent": true,
+      "credentials": ["gitlab_token"],
+      "input": {
+        "type": "object",
+        "properties": {
+          "project": { "type": "string", "maxLength": 255, "pattern": "^([0-9]{1,12}|[A-Za-z0-9_][A-Za-z0-9_.-]*(/[A-Za-z0-9_][A-Za-z0-9_.-]*){1,5})$" },
+          "branch": { "type": "string", "pattern": "^dittoly/fix-[a-z0-9-]{4,64}$" }
+        },
+        "required": ["project", "branch"],
+        "additionalProperties": false
+      },
+      "output": { "type": "object", "properties": { "branch": { "type": "string" }, "deleted": { "type": "boolean" } }, "required": ["branch", "deleted"] }
+    },
+    {
+      "name": "commit_files",
+      "title": "Commit file changes",
+      "description": "Commits several text file changes (create, update, delete) to a dittoly/fix-* branch in one commit. Dot-files and dot-folders (CI configuration) cannot be changed. A head commit with this message and these files (from a call whose answer was lost) is reused.",
+      "effect": "write",
+      "idempotent": true,
+      "credentials": ["gitlab_token"],
+      "input": {
+        "type": "object",
+        "properties": {
+          "project": { "type": "string", "maxLength": 255, "pattern": "^([0-9]{1,12}|[A-Za-z0-9_][A-Za-z0-9_.-]*(/[A-Za-z0-9_][A-Za-z0-9_.-]*){1,5})$" },
+          "branch": { "type": "string", "pattern": "^dittoly/fix-[a-z0-9-]{4,64}$" },
+          "message": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "files": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": { "type": "string", "maxLength": 300, "pattern": "^[A-Za-z0-9_@+-][A-Za-z0-9_.@+-]*(/[A-Za-z0-9_@+-][A-Za-z0-9_.@+-]*){0,30}$" },
+                "action": { "type": "string", "enum": ["create", "update", "delete"] },
+                "content": { "type": "string", "maxLength": 40000 }
+              },
+              "required": ["path", "action"],
+              "additionalProperties": false,
+              "if": { "properties": { "action": { "enum": ["create", "update"] } } },
+              "then": { "required": ["content"] }
+            }
+          }
+        },
+        "required": ["project", "branch", "message", "files"],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": { "sha": { "type": "string" }, "shortSha": { "type": "string" }, "url": { "type": "string" }, "filesChanged": { "type": "integer" }, "reused": { "type": "boolean" } },
+        "required": ["sha", "filesChanged"]
+      }
+    },
+    {
+      "name": "create_draft_mr",
+      "title": "Open a draft merge request",
+      "description": "Opens a draft merge request (title prefixed \"Draft:\") from a dittoly/fix-* branch, with a Markdown description and labels; the source branch is removed when it is merged. An open merge request from the branch (from a call whose answer was lost) is returned.",
+      "effect": "write",
+      "idempotent": true,
+      "credentials": ["gitlab_token"],
+      "input": {
+        "type": "object",
+        "properties": {
+          "project": { "type": "string", "maxLength": 255, "pattern": "^([0-9]{1,12}|[A-Za-z0-9_][A-Za-z0-9_.-]*(/[A-Za-z0-9_][A-Za-z0-9_.-]*){1,5})$" },
+          "sourceBranch": { "type": "string", "pattern": "^dittoly/fix-[a-z0-9-]{4,64}$" },
+          "targetBranch": { "type": "string", "maxLength": 200, "pattern": "^[A-Za-z0-9_][A-Za-z0-9._/-]{0,199}$" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[^\\r\\n]+$" },
+          "description": { "type": "string", "maxLength": 100000 },
+          "labels": { "type": "array", "maxItems": 10, "items": { "type": "string", "pattern": "^[^,\\r\\n]{1,50}$" } }
+        },
+        "required": ["project", "sourceBranch", "targetBranch", "title", "description"],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": { "iid": { "type": "integer" }, "url": { "type": "string" }, "draft": { "type": "boolean" }, "state": { "type": "string" }, "reused": { "type": "boolean" } },
+        "required": ["iid", "url", "draft"]
+      },
+      "undo": { "action": "close_mr", "input": { "project": "{{ input.project }}", "iid": "{{ output.iid }}" } }
+    },
+    {
+      "name": "close_mr",
+      "title": "Close a merge request",
+      "description": "Closes a merge request without merging it.",
+      "effect": "write",
+      "idempotent": true,
+      "credentials": ["gitlab_token"],
+      "input": {
+        "type": "object",
+        "properties": {
+          "project": { "type": "string", "maxLength": 255, "pattern": "^([0-9]{1,12}|[A-Za-z0-9_][A-Za-z0-9_.-]*(/[A-Za-z0-9_][A-Za-z0-9_.-]*){1,5})$" },
+          "iid": { "type": "integer", "minimum": 1 }
+        },
+        "required": ["project", "iid"],
+        "additionalProperties": false
+      },
+      "output": { "type": "object", "properties": { "iid": { "type": "integer" }, "state": { "type": "string" } }, "required": ["iid", "state"] }
+    },
+    {
+      "name": "comment_on_mr",
+      "title": "Comment on a merge request",
+      "description": "Adds a Markdown comment to a merge request.",
+      "effect": "write",
+      "credentials": ["gitlab_token"],
+      "input": {
+        "type": "object",
+        "properties": {
+          "project": { "type": "string", "maxLength": 255, "pattern": "^([0-9]{1,12}|[A-Za-z0-9_][A-Za-z0-9_.-]*(/[A-Za-z0-9_][A-Za-z0-9_.-]*){1,5})$" },
+          "iid": { "type": "integer", "minimum": 1 },
+          "body": { "type": "string", "minLength": 1, "maxLength": 100000 }
+        },
+        "required": ["project", "iid", "body"],
+        "additionalProperties": false
+      },
+      "output": { "type": "object", "properties": { "noteId": { "type": "integer" } }, "required": ["noteId"] },
+      "undo": { "action": "delete_comment", "input": { "project": "{{ input.project }}", "iid": "{{ input.iid }}", "noteId": "{{ output.noteId }}" } }
+    },
+    {
+      "name": "delete_comment",
+      "title": "Delete a merge request comment",
+      "description": "Deletes one comment from a merge request.",
+      "effect": "write",
+      "credentials": ["gitlab_token"],
+      "input": {
+        "type": "object",
+        "properties": {
+          "project": { "type": "string", "maxLength": 255, "pattern": "^([0-9]{1,12}|[A-Za-z0-9_][A-Za-z0-9_.-]*(/[A-Za-z0-9_][A-Za-z0-9_.-]*){1,5})$" },
+          "iid": { "type": "integer", "minimum": 1 },
+          "noteId": { "type": "integer", "minimum": 1 }
+        },
+        "required": ["project", "iid", "noteId"],
+        "additionalProperties": false
+      },
+      "output": { "type": "object", "properties": { "deleted": { "type": "boolean" } }, "required": ["deleted"] }
+    }
+  ]
+}

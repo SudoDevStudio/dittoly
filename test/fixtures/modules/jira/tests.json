@@ -1,0 +1,22 @@
+[
+  {
+    "name": "finds approved issues",
+    "action": "search_issues",
+    "input": { "jql": "fixVersion = 2.4 AND status = Approved" },
+    "http": [
+      {
+        "method": "GET",
+        "urlPrefix": "https://example.atlassian.net/rest/api/3/search/jql",
+        "status": 200,
+        "json": { "issues": [{ "key": "REL-1", "fields": { "summary": "Ship it", "status": { "name": "Approved" } } }] }
+      }
+    ]
+  },
+  {
+    "name": "reports an expired token",
+    "action": "search_issues",
+    "input": { "jql": "project = REL" },
+    "http": [{ "method": "GET", "urlPrefix": "https://example.atlassian.net/rest/api/3/search/jql", "status": 401, "json": {} }],
+    "expectOk": false
+  }
+]

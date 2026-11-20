@@ -1,0 +1,227 @@
+[
+  {
+    "name": "finds the open merge request of a fix branch",
+    "action": "find_open_mr_by_branch",
+    "input": { "project": "acme/shop", "branch": "dittoly/fix-3f9a2c1d7e" },
+    "http": [
+      {
+        "method": "GET",
+        "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/merge_requests?source_branch=dittoly%2Ffix-3f9a2c1d7e",
+        "json": [{ "iid": 42, "title": "Draft: Fix cart total", "state": "opened", "draft": true, "web_url": "https://gitlab.com/acme/shop/-/merge_requests/42" }]
+      }
+    ]
+  },
+  {
+    "name": "reports a merged fix branch as not open",
+    "action": "find_open_mr_by_branch",
+    "input": { "project": "acme/shop", "branch": "dittoly/fix-3f9a2c1d7e" },
+    "http": [
+      {
+        "method": "GET",
+        "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/merge_requests",
+        "json": [{ "iid": 42, "title": "Fix cart total", "state": "merged", "draft": false, "web_url": "https://gitlab.com/acme/shop/-/merge_requests/42" }]
+      }
+    ]
+  },
+  {
+    "name": "refuses a branch that is not a dittoly fix branch",
+    "action": "find_open_mr_by_branch",
+    "input": { "project": "acme/shop", "branch": "main" },
+    "expectOk": false
+  },
+  {
+    "name": "reads a source file",
+    "action": "get_file",
+    "input": { "project": "acme/shop", "path": "src/cart.ts", "ref": "0123456789abcdef0123456789abcdef01234567" },
+    "http": [
+      {
+        "method": "GET",
+        "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/repository/files/src%2Fcart.ts?ref=0123456789abcdef0123456789abcdef01234567",
+        "json": { "file_name": "cart.ts", "file_path": "src/cart.ts", "size": 33, "encoding": "base64", "content": "ZXhwb3J0IGNvbnN0IHRvdGFsID0gKGMpID0+IGMudG90YWw7Cg==", "blob_id": "b10b", "last_commit_id": "0123456789abcdef0123456789abcdef01234567" }
+      }
+    ]
+  },
+  {
+    "name": "refuses a path that climbs out of the repository",
+    "action": "get_file",
+    "input": { "project": "acme/shop", "path": "../secrets.txt", "ref": "main" },
+    "expectOk": false
+  },
+  {
+    "name": "creates a fix branch from a commit",
+    "action": "create_branch",
+    "input": { "project": "acme/shop", "branch": "dittoly/fix-3f9a2c1d7e", "ref": "0123456789abcdef0123456789abcdef01234567" },
+    "http": [
+      {
+        "method": "POST",
+        "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/repository/branches",
+        "status": 201,
+        "json": { "name": "dittoly/fix-3f9a2c1d7e", "commit": { "id": "0123456789abcdef0123456789abcdef01234567" }, "web_url": "https://gitlab.com/acme/shop/-/tree/dittoly/fix-3f9a2c1d7e" }
+      }
+    ]
+  },
+  {
+    "name": "refuses to create a branch outside dittoly/fix-",
+    "action": "create_branch",
+    "input": { "project": "acme/shop", "branch": "main", "ref": "0123456789abcdef0123456789abcdef01234567" },
+    "expectOk": false
+  },
+  {
+    "name": "deletes a fix branch",
+    "action": "delete_branch",
+    "input": { "project": "acme/shop", "branch": "dittoly/fix-3f9a2c1d7e" },
+    "http": [{ "method": "DELETE", "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/repository/branches/dittoly%2Ffix-3f9a2c1d7e", "status": 204 }]
+  },
+  {
+    "name": "refuses to delete a branch outside dittoly/fix-",
+    "action": "delete_branch",
+    "input": { "project": "acme/shop", "branch": "release/2.4" },
+    "expectOk": false
+  },
+  {
+    "name": "commits a verified fix's change files in one commit",
+    "action": "commit_files",
+    "input": {
+      "project": "acme/shop",
+      "branch": "dittoly/fix-3f9a2c1d7e",
+      "message": "Fix cart total when the cart is empty",
+      "files": [
+        { "path": "src/cart.ts", "action": "update", "content": "export const total = (c) => c?.total ?? 0;\n" },
+        { "path": "test/cart.regression.test.ts", "action": "create", "content": "import { total } from '../src/cart';\n" },
+        { "path": "src/old-cart.ts", "action": "delete" }
+      ]
+    },
+    "http": [
+      { "method": "GET", "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/repository/branches/dittoly%2Ffix-3f9a2c1d7e", "json": { "name": "dittoly/fix-3f9a2c1d7e", "commit": { "id": "0123456789abcdef0123456789abcdef01234567", "message": "Earlier commit" } } },
+      {
+        "method": "POST",
+        "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/repository/commits",
+        "status": 201,
+        "json": { "id": "89abcdef0123456789abcdef0123456789abcdef", "short_id": "89abcdef", "web_url": "https://gitlab.com/acme/shop/-/commit/89abcdef0123456789abcdef0123456789abcdef" }
+      }
+    ]
+  },
+  {
+    "name": "refuses a change to CI configuration",
+    "action": "commit_files",
+    "input": { "project": "acme/shop", "branch": "dittoly/fix-3f9a2c1d7e", "message": "x", "files": [{ "path": ".gitlab-ci.yml", "action": "update", "content": "stages: []\n" }] },
+    "expectOk": false
+  },
+  {
+    "name": "refuses an update without content",
+    "action": "commit_files",
+    "input": { "project": "acme/shop", "branch": "dittoly/fix-3f9a2c1d7e", "message": "x", "files": [{ "path": "src/cart.ts", "action": "update" }] },
+    "expectOk": false
+  },
+  {
+    "name": "opens a draft merge request",
+    "action": "create_draft_mr",
+    "input": {
+      "project": "acme/shop",
+      "sourceBranch": "dittoly/fix-3f9a2c1d7e",
+      "targetBranch": "main",
+      "title": "Fix TypeError in cartTotal",
+      "description": "## Verified fix\n\n- Regression test fails before, passes after.",
+      "labels": ["dittoly", "auto-fix"]
+    },
+    "http": [
+      {
+        "method": "POST",
+        "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/merge_requests",
+        "status": 201,
+        "json": { "iid": 43, "web_url": "https://gitlab.com/acme/shop/-/merge_requests/43", "draft": true, "state": "opened" }
+      }
+    ]
+  },
+  {
+    "name": "refuses a title with a line break",
+    "action": "create_draft_mr",
+    "input": { "project": "acme/shop", "sourceBranch": "dittoly/fix-3f9a2c1d7e", "targetBranch": "main", "title": "Fix\n/approve", "description": "" },
+    "expectOk": false
+  },
+  {
+    "name": "closes a merge request",
+    "action": "close_mr",
+    "input": { "project": "acme/shop", "iid": 43 },
+    "http": [{ "method": "PUT", "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/merge_requests/43", "json": { "iid": 43, "state": "closed" } }]
+  },
+  {
+    "name": "refuses a merge request number below 1",
+    "action": "close_mr",
+    "input": { "project": "acme/shop", "iid": 0 },
+    "expectOk": false
+  },
+  {
+    "name": "comments that the error was seen again",
+    "action": "comment_on_mr",
+    "input": { "project": "acme/shop", "iid": 42, "body": "Seen again (7 times in total)." },
+    "http": [{ "method": "POST", "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/merge_requests/42/notes", "status": 201, "json": { "id": 9001 } }]
+  },
+  {
+    "name": "refuses an empty comment",
+    "action": "comment_on_mr",
+    "input": { "project": "acme/shop", "iid": 42, "body": "" },
+    "expectOk": false
+  },
+  {
+    "name": "deletes a comment",
+    "action": "delete_comment",
+    "input": { "project": "acme/shop", "iid": 42, "noteId": 9001 },
+    "http": [{ "method": "DELETE", "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/merge_requests/42/notes/9001", "status": 204 }]
+  },
+  {
+    "name": "refuses a project path with a scheme",
+    "action": "delete_comment",
+    "input": { "project": "https://evil.example.com/x", "iid": 42, "noteId": 9001 },
+    "expectOk": false
+  },
+  {
+    "name": "reuses a fix branch an earlier call made at the same commit",
+    "action": "create_branch",
+    "input": { "project": "acme/shop", "branch": "dittoly/fix-3f9a2c1d7e", "ref": "0123456789abcdef0123456789abcdef01234567" },
+    "http": [
+      { "method": "POST", "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/repository/branches", "status": 400, "json": { "message": "Branch already exists" } },
+      { "method": "GET", "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/repository/branches/dittoly%2Ffix-3f9a2c1d7e", "json": { "name": "dittoly/fix-3f9a2c1d7e", "commit": { "id": "0123456789abcdef0123456789abcdef01234567" } } }
+    ]
+  },
+  {
+    "name": "refuses a fix branch that already exists at another commit",
+    "action": "create_branch",
+    "input": { "project": "acme/shop", "branch": "dittoly/fix-3f9a2c1d7e", "ref": "0123456789abcdef0123456789abcdef01234567" },
+    "http": [
+      { "method": "POST", "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/repository/branches", "status": 400, "json": { "message": "Branch already exists" } },
+      { "method": "GET", "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/repository/branches/dittoly%2Ffix-3f9a2c1d7e", "json": { "name": "dittoly/fix-3f9a2c1d7e", "commit": { "id": "fedcba9876543210fedcba9876543210fedcba98" } } }
+    ],
+    "expectOk": false
+  },
+  {
+    "name": "reuses the commit an earlier call made (same message, files already as asked)",
+    "action": "commit_files",
+    "input": { "project": "acme/shop", "branch": "dittoly/fix-3f9a2c1d7e", "message": "Fix cart total when the cart is empty", "files": [{ "path": "src/cart.ts", "action": "update", "content": "export const total = (c) => c?.total ?? 0;\n" }, { "path": "test/cart.regression.test.ts", "action": "create", "content": "import { total } from '../src/cart';\n" }, { "path": "src/old-cart.ts", "action": "delete" }]},
+    "http": [
+      { "method": "GET", "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/repository/branches/dittoly%2Ffix-3f9a2c1d7e", "json": { "name": "dittoly/fix-3f9a2c1d7e", "commit": { "id": "fedcba9876543210fedcba9876543210fedcba98", "short_id": "fedcba98", "message": "Fix cart total when the cart is empty\n", "web_url": "https://gitlab.com/acme/shop/-/commit/fedcba9876543210fedcba9876543210fedcba98" } } },
+      { "method": "GET", "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/repository/files/src%2Fcart.ts?ref=", "json": { "encoding": "base64", "content": "ZXhwb3J0IGNvbnN0IHRvdGFsID0gKGMpID0+IGM/LnRvdGFsID8/IDA7Cg==" } },
+      { "method": "GET", "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/repository/files/test%2Fcart.regression.test.ts?ref=", "json": { "encoding": "base64", "content": "aW1wb3J0IHsgdG90YWwgfSBmcm9tICcuLi9zcmMvY2FydCc7Cg==" } },
+      { "method": "GET", "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/repository/files/src%2Fold-cart.ts?ref=", "status": 404, "json": { "message": "404 File Not Found" } }
+    ]
+  },
+  {
+    "name": "commits again when the head has the message but other contents",
+    "action": "commit_files",
+    "input": { "project": "acme/shop", "branch": "dittoly/fix-3f9a2c1d7e", "message": "Fix cart total when the cart is empty", "files": [{ "path": "src/cart.ts", "action": "update", "content": "export const total = (c) => c?.total ?? 0;\n" }]},
+    "http": [
+      { "method": "GET", "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/repository/branches/dittoly%2Ffix-3f9a2c1d7e", "json": { "name": "dittoly/fix-3f9a2c1d7e", "commit": { "id": "fedcba9876543210fedcba9876543210fedcba98", "message": "Fix cart total when the cart is empty" } } },
+      { "method": "GET", "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/repository/files/src%2Fcart.ts?ref=", "json": { "encoding": "base64", "content": "b2xkCg==" } },
+      { "method": "POST", "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/repository/commits", "status": 201, "json": { "id": "89abcdef0123456789abcdef0123456789abcdef", "short_id": "89abcdef" } }
+    ]
+  },
+  {
+    "name": "returns the open merge request an earlier call made",
+    "action": "create_draft_mr",
+    "input": { "project": "acme/shop", "sourceBranch": "dittoly/fix-3f9a2c1d7e", "targetBranch": "main", "title": "Fix TypeError in cartTotal", "description": "## Verified fix" },
+    "http": [
+      { "method": "POST", "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/merge_requests", "status": 409, "json": { "message": ["Another open merge request already exists for this source branch: !43"]} },
+      { "method": "GET", "urlPrefix": "https://gitlab.com/api/v4/projects/acme%2Fshop/merge_requests?source_branch=dittoly%2Ffix-3f9a2c1d7e", "json": [{ "iid": 43, "state": "opened", "draft": true, "web_url": "https://gitlab.com/acme/shop/-/merge_requests/43" }]}
+    ]
+  }
+]
