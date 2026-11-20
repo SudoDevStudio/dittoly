@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security problem
+    url: https://github.com/SudoDevStudio/dittoly/security/advisories/new
+    about: Report it privately, not in an issue. Please do not open a public issue for a vulnerability.
+  - name: Documentation
+    url: https://github.com/SudoDevStudio/dittoly/tree/main/docs
+    about: Install, governance, the sandboxes, running a shared server and every feature guide.

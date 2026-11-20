@@ -1,0 +1,30 @@
+name: Idea
+description: Something Dittoly should be able to do
+labels: [idea]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you are trying to do
+      description: The job in front of you, not the feature you have in mind for it. That one sentence decides most of the design.
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: How you do it today
+      description: What you do instead, and where it falls down.
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you think would work
+      description: Optional. If you have a shape in mind, describe it; if not, leave this empty.
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Does it fit what Dittoly promises?
+      description: An idea that needs one of these broken can still be worth discussing — just say so.
+      options:
+        - label: A person still approves an exact version before anything runs
+        - label: Nothing runs as a hidden account; each call uses someone's own access
+        - label: It does not need a module to reach a host it did not declare

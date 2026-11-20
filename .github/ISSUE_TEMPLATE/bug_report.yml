@@ -1,0 +1,55 @@
+name: Bug report
+description: Something does not work as described
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Not for security problems.** Those go through **Security → Report a vulnerability**, privately
+        ([SECURITY.md](https://github.com/SudoDevStudio/dittoly/blob/main/SECURITY.md)).
+
+        Before you paste anything: a run's report, a log or a screenshot can carry a token or a customer's data.
+        Read what you paste, and take out anything that is not yours to publish.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to see it again
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The commit or release you are running.
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: How it runs
+      options:
+        - Local install on my own machine (personal mode)
+        - Shared server (DITTOLY_MODE=shared)
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version
+      description: "`node --version` (Dittoly needs 26 or later)."
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else
+      description: The error, the step it failed on, what the run report says — with secrets removed.
