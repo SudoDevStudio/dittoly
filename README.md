@@ -6,6 +6,28 @@ Dittoly is self-hosted orchestration. **Super-Modules** connect your apps, **Flo
 
 ## Install
 
+### Quick start (macOS and Linux)
+
+Needs Node.js 26 (switched for you if you use nvm) and Docker with Compose, running.
+
+```bash
+./run.sh
+```
+
+It does only what is still missing, in order: installs the npm packages, creates `.env` from `.env.example` with a
+new encryption key, asks which AI should draft modules and Flows (the Claude and Codex CLIs you are signed in to are
+offered first; an API key you type is hidden and saved only in `.env`), pulls and starts PostgreSQL and RabbitMQ in
+Docker, builds, and starts Dittoly with your sign-in link. Running it again is safe and takes about a second when
+nothing changed.
+
+```bash
+./run.sh --ai claude-cli   # choose the AI without being asked (claude-cli, codex-cli, anthropic, openai, ollama, none)
+./run.sh --setup-only      # everything except starting
+./run.sh --stop            # stop PostgreSQL and RabbitMQ; your data is kept
+```
+
+The steps below are the same thing by hand.
+
 ### Local app with PostgreSQL and RabbitMQ
 
 Needs Node.js 26 and Docker with Compose. Dittoly runs on your machine; the two supporting services run in Docker.
