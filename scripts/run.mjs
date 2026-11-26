@@ -6,7 +6,7 @@
 // Flows when none is set, pulls and starts PostgreSQL and RabbitMQ, builds when the sources changed, and starts
 // Dittoly. Running it again is safe.
 import { spawn, spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs, parseEnv } from 'node:util';
@@ -239,11 +239,14 @@ await withSpinner(
 
 // ------------------------------------------------------------------------------------------------ 6. build
 const stamp = path.join(ROOT, 'dist', '.run-built');
+/** True when the file, or anything under the folder, changed after `ref` (a time in ms). */
 function newerThan(file, ref) {
   const st = statSync(file, { throwIfNoEntry: false });
   if (!st) return false;
   if (!st.isDirectory()) return st.mtimeMs > ref;
-  return spawnSync('find', [file, '-newer', stamp, '-print', '-quit'], { encoding: 'utf8' }).stdout.trim() !== '';
+  return readdirSync(file, { recursive: true, withFileTypes: true }).some(
+    (entry) => entry.isFile() && statSync(path.join(entry.parentPath, entry.name)).mtimeMs > ref,
+  );
 }
 const builtAt = statSync(stamp, { throwIfNoEntry: false })?.mtimeMs;
 if (args.rebuild || !existsSync('dist/web/index.html') || !builtAt || ['src', 'web', 'package-lock.json'].some((f) => newerThan(f, builtAt))) {
