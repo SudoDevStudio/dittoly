@@ -27,6 +27,9 @@ const HELP = `Set up and start Dittoly on this machine, from the clone.
   npx dittoly run --setup-only       everything except starting
   npx dittoly run --rebuild          build again before starting
   npx dittoly run --stop             stop PostgreSQL and RabbitMQ (your data is kept)
+  npx dittoly run --reset            start over: delete modules, Flows, runs, apps, plans, data tables and history,
+                                     keep your account, teams, stored credentials, encryption key and settings
+                                     (asks first; add --yes to skip the question)
 
 The same: npm run up -- <options>, or ./run.sh <options> (which also switches to Node.js 26 with nvm).
 Run it inside the clone: the name "dittoly" on the npm registry belongs to someone else.`;
@@ -39,6 +42,8 @@ try {
       'setup-only': { type: 'boolean', default: false },
       rebuild: { type: 'boolean', default: false },
       stop: { type: 'boolean', default: false },
+      reset: { type: 'boolean', default: false },
+      yes: { type: 'boolean', short: 'y', default: false },
       help: { type: 'boolean', short: 'h', default: false },
     },
   }));
@@ -117,6 +122,64 @@ if (args.stop) {
   const r = run('docker', [...COMPOSE, 'down']);
   if (!r.ok) process.exit(1);
   console.log('PostgreSQL and RabbitMQ stopped. Your data is kept; npx dittoly run starts them again.');
+  process.exit(0);
+}
+
+// ------------------------------------------------------------------------------------------------ --reset
+if (args.reset) {
+  p.intro(' Dittoly · start over ');
+  if (!existsSync(ENV)) stop('There is nothing to reset yet: no .env here. Run npx dittoly run first.');
+  // The database has to be up to be emptied; RabbitMQ is recreated below.
+  await withSpinner('Starting PostgreSQL', 'PostgreSQL is up', 'docker', [...COMPOSE, 'up', '-d', '--wait', 'postgres']);
+  const reset = (flag) => {
+    const r = spawnSync(process.execPath, ['--env-file-if-exists=.env', '--import', 'tsx', 'src/cli/reset.ts', flag], { encoding: 'utf8' });
+    const line = r.stdout.trim().split('\n').pop() || '{}';
+    let result;
+    try {
+      result = JSON.parse(line);
+    } catch {
+      result = { error: 'failed', message: `${r.stdout}${r.stderr}`.trim().split('\n').slice(-10).join('\n') };
+    }
+    if (result.error) stop(result.message);
+    return result;
+  };
+  const what = reset('--preview');
+  if (what.empty) {
+    p.outro('Nothing to reset: Dittoly has not created its data yet.');
+    process.exit(0);
+  }
+  p.note(
+    [
+      `Deleted   ${what.modules} module(s), ${what.flows} Flow(s) and Super Flow(s), ${what.runs} run(s),`,
+      '          with their approvals, schedules, tests and history; apps, plans, data tables,',
+      '          the audit log, AI usage, git sync, queued messages, and sandbox leftovers',
+      'Kept      your account and sign-in, teams, stored credentials (yours and the teams\'),',
+      '          the encryption key in .env, and settings (AI, budgets, policies, channels, themes)',
+    ].join('\n'),
+    'Start over',
+  );
+  if (!args.yes) {
+    if (!interactive) stop('Not resetting without a question answered: add --yes to confirm.');
+    const go = answered(await p.confirm({ message: 'Delete all of this? It cannot be undone.', initialValue: false }));
+    if (!go) {
+      p.outro('Nothing was deleted.');
+      process.exit(0);
+    }
+  }
+  const s = process.stdout.isTTY ? p.spinner() : { start: (m) => p.log.step(m), stop: (m) => p.log.success(m) };
+  s.start('Deleting');
+  const done = reset('--yes');
+  // Messages waiting in RabbitMQ belong to the runs that just went: its volume holds nothing else.
+  run('docker', [...COMPOSE, 'rm', '-s', '-f', '-v', 'rabbitmq'], { quiet: true });
+  let project = path.basename(ROOT).toLowerCase().replace(/[^a-z0-9_-]/g, '');
+  try {
+    project = JSON.parse(run('docker', [...COMPOSE, 'config', '--format', 'json'], { quiet: true }).out).name || project;
+  } catch {
+    // Compose names the project after the folder by default; that is what the line above already assumes.
+  }
+  run('docker', ['volume', 'rm', '-f', `${project}_rabbitmq`], { quiet: true });
+  s.stop(`Deleted ${done.modules} module(s) and ${done.flows} Flow(s)${done.images?.length ? `, and ${done.images.length} pulled sandbox image(s)` : ''}`);
+  p.outro('Done. Start again with: npx dittoly run — you sign in as before, and your credentials are still there.');
   process.exit(0);
 }
 

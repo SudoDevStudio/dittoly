@@ -23,6 +23,8 @@ RabbitMQ in Docker, builds, and starts Dittoly with your sign-in link. Running i
 npx dittoly run --ai claude-cli   # choose the AI without being asked (claude-cli, codex-cli, anthropic, openai, ollama, none)
 npx dittoly run --setup-only      # everything except starting
 npx dittoly run --stop            # stop PostgreSQL and RabbitMQ; your data is kept
+npx dittoly run --reset           # start over: delete modules, Flows, runs, apps, plans, data tables and history;
+                                  # keep your account, teams, stored credentials, encryption key and settings
 ```
 
 `npm run up -- <options>` is the same command, and `./run.sh <options>` also switches to Node.js 26 with nvm first.
