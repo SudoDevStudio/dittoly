@@ -12,6 +12,7 @@
     "build": "tsc -p tsconfig.build.json && vite build --config web/vite.config.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p web/tsconfig.json",
     "start": "node --env-file-if-exists=.env --import tsx src/main.ts",
+    "up": "node bin/dittoly.mjs run",
     "dev": "node --env-file-if-exists=.env --watch --import tsx src/main.ts",
     "setup:local": "node scripts/setup-local.mjs",
     "services:up": "docker compose -f docker-compose.local.yml up -d --wait",
@@ -66,6 +67,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@clack/prompts": "^1.9.0",
     "@modelcontextprotocol/server": "^2.4.0",
     "@types/mailparser": "3.9.0",
     "@types/mssql": "^12.3.0",
