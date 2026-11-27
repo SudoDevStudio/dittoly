@@ -1,0 +1,86 @@
+# Dittoly on a server for a team: the published image, HTTPS on your domain, single sign-on.
+#
+#   1. In an empty folder on the server, put this file and a .env (from .env.example) next to each other.
+#   2. In .env set DITTOLY_DOMAIN, DITTOLY_MASTER_KEY, the DITTOLY_OIDC_* lines and the AI (docs/server.md).
+#   3. Point the domain's DNS at this server, open ports 80 and 443, then:
+#        docker compose -f compose.server.yml up -d
+#        docker compose -f compose.server.yml exec dittoly node dist/src/cli/bootstrap.js admin
+#
+# Nothing to build and nothing to edit here. Upgrades: change DITTOLY_VERSION in .env, then `up -d` again.
+# (docker-compose.yml is the same stack built from source; docker-compose.local.yml is for npx dittoly run.)
+name: dittoly
+
+services:
+  dittoly:
+    image: ghcr.io/sudodevstudio/dittoly:${DITTOLY_VERSION:-0.1.0}
+    depends_on:
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    env_file: .env
+    environment:
+      # Shared mode: people sign in only through your identity provider, and module code runs only in Docker.
+      DITTOLY_MODE: shared
+      DITTOLY_SANDBOX: docker
+      DITTOLY_PUBLIC_URL: https://${DITTOLY_DOMAIN:?set DITTOLY_DOMAIN in .env to the address people open, e.g. dittoly.example.com}
+      HOST: 0.0.0.0
+      PORT: 8080
+      DATABASE_URL: postgres://postgres@postgres:5432/${DITTOLY_COMPOSE_DB:-dittoly}
+      DITTOLY_AMQP_URL: amqp://${DITTOLY_COMPOSE_MQ_USER:-dittoly}:${DITTOLY_COMPOSE_MQ_USER:-dittoly}@rabbitmq:5672
+      # Module code is written here and mounted into sandbox containers by the host's Docker,
+      # so the path must be the same inside this container and on the host.
+      TMPDIR: /tmp/dittoly-sandbox
+    # Only this machine can reach it directly (for `curl http://127.0.0.1:8080/ready`); everyone else comes through Caddy.
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      # Lets Dittoly start sandbox containers. This is root-equivalent access to the host: give Dittoly a host of its own.
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/dittoly-sandbox:/tmp/dittoly-sandbox
+    restart: unless-stopped
+
+  # HTTPS: Caddy gets and renews the certificate for DITTOLY_DOMAIN from Let's Encrypt by itself.
+  caddy:
+    image: caddy:2.11.9-alpine
+    depends_on: [dittoly]
+    command: caddy reverse-proxy --from ${DITTOLY_DOMAIN} --to dittoly:8080
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+  # PostgreSQL and RabbitMQ are reachable only inside this stack: no ports on the host.
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_DB: ${DITTOLY_COMPOSE_DB:-dittoly}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "${DITTOLY_COMPOSE_DB:-dittoly}"]
+      interval: 2s
+      retries: 30
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:4.2-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${DITTOLY_COMPOSE_MQ_USER:-dittoly}
+      RABBITMQ_DEFAULT_PASS: ${DITTOLY_COMPOSE_MQ_USER:-dittoly}
+    volumes:
+      - rabbitmq:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 5s
+      retries: 30
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  rabbitmq:
+  caddy_data:
+  caddy_config:

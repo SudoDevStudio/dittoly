@@ -1,0 +1,168 @@
+# The server image, ghcr.io/sudodevstudio/dittoly, that compose.server.yml runs (docs/server.md).
+#
+# - On a published GitHub release: build for linux/amd64 and linux/arm64 and push :<version>, :<major>.<minor> and
+#   :latest, with an SBOM and build provenance attached and a signed attestation anyone can check:
+#     gh attestation verify oci://ghcr.io/sudodevstudio/dittoly:<version> --repo SudoDevStudio/dittoly
+# - On a pull request that changes the image or how it is run: build it (not pushed) and start the whole
+#   compose.server.yml stack with it, so a release never meets a Dockerfile that does not build or start.
+#
+# Only on a published release, not on every pushed tag: publishing a release in the UI also creates its tag, and one
+# event per version keeps it to one build.
+name: Release image
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag to build and publish (for example v0.1.0)'
+        required: true
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - compose.server.yml
+      - .env.example
+      - package-lock.json
+      - .github/workflows/release.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event.release.tag_name || inputs.tag || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Image names must be lower case (the owner is SudoDevStudio); compose.server.yml pulls this name.
+  IMAGE: ghcr.io/sudodevstudio/dittoly
+
+jobs:
+  # ---------------------------------------------------------------------------------------- pull requests
+  check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build the image (not pushed)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: ${{ env.IMAGE }}:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Start compose.server.yml with it
+        run: |
+          cp .env.example .env
+          sed -i "s|^DITTOLY_MASTER_KEY=.*|DITTOLY_MASTER_KEY=$(openssl rand -base64 32)|" .env
+          printf 'DITTOLY_DOMAIN=localhost\nDITTOLY_VERSION=ci\n' >> .env
+          docker compose -f compose.server.yml up -d --wait --wait-timeout 180
+
+      - name: It answers, directly and through Caddy
+        run: |
+          curl -fsS http://127.0.0.1:8080/ready | tee /dev/stderr | grep -q '"ready":true'
+          # Caddy serves localhost with its own internal certificate authority, hence -k.
+          curl -fsSk https://localhost/health
+          # PostgreSQL and RabbitMQ must not be reachable from the host: no port of theirs is published.
+          for port in 5432 5433 5672; do
+            if timeout 2 bash -c "exec 3<>/dev/tcp/127.0.0.1/$port" 2>/dev/null; then echo "::error::port $port is open on the host"; exit 1; fi
+          done
+
+      - name: The first admin can be created
+        run: |
+          docker compose -f compose.server.yml exec -T dittoly node dist/src/cli/bootstrap.js admin | grep -q '^token: '
+
+      - name: Logs, when something failed
+        if: failure()
+        run: docker compose -f compose.server.yml logs --no-color --tail 200
+
+  # ---------------------------------------------------------------------------------------- releases
+  publish:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write # push to ghcr.io
+      id-token: write # sign the attestation
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+
+      - name: Version from the tag
+        id: version
+        env:
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          case "$TAG" in v[0-9]*.[0-9]*.[0-9]*) ;; *) echo "::error::Not a version tag: $TAG"; exit 1 ;; esac
+          version="${TAG#v}"
+          # The tag must match package.json, so the image and the code agree on what version they are.
+          pkg=$(node -p 'require("./package.json").version')
+          if [ "$pkg" != "$version" ]; then echo "::error::Tag $TAG but package.json says $pkg"; exit 1; fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          # A pre-release (0.2.0-rc.1) never becomes :latest or :<major>.<minor>.
+          case "$version" in *-*) echo "prerelease=true" ;; *) echo "prerelease=false" ;; esac >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}},value=v${{ steps.version.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ steps.version.outputs.version }},enable=${{ steps.version.outputs.prerelease == 'false' }}
+            type=raw,value=latest,enable=${{ steps.version.outputs.prerelease == 'false' }}
+          labels: |
+            org.opencontainers.image.title=Dittoly
+            org.opencontainers.image.description=Self-hosted orchestration: AI drafts the Flow, a person approves it, the engine runs exactly that version.
+            org.opencontainers.image.licenses=Apache-2.0
+
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # What is inside (SBOM) and how it was built (provenance), attached to the image itself.
+          sbom: true
+          provenance: mode=max
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Summary
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          {
+            echo "### $IMAGE:$VERSION"
+            echo
+            echo "Digest \`$DIGEST\` (linux/amd64, linux/arm64)."
+            echo
+            echo "The first image is private on GHCR: make it public once under Packages → dittoly → Package settings."
+          } >> "$GITHUB_STEP_SUMMARY"
