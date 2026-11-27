@@ -1,7 +1,5 @@
 # Dittoly
 
-[![Watch a one-minute video tour of dittoly](https://gitdiagram.com/video-badge.svg)](https://gitdiagram.com/sudodevstudio/dittoly/video)
-
 **Orchestrate anything.** Super-Modules + Super Flows, approved by people, run with your own access.
 
 Dittoly is self-hosted orchestration. **Super-Modules** connect your apps, **Flows** automate a process, and **Super Flows** connect Flows into bigger ones ([docs/super-flows.md](docs/super-flows.md)). Describe a multi-app process in plain language, the AI drafts a Flow, a person approves it, and the engine runs exactly that version. Every member keeps their own credentials; when you lack access, a teammate runs that one step with theirs.
