@@ -61,6 +61,45 @@ How these figures were reached:
 These are planning figures, from the limits above and one measured host. They are not a load test of your Flows:
 watch the Admin page's "Background work" card, and `docker stats`, in the first weeks, and resize.
 
+## Quick setup with the published image
+
+Each release is published as `ghcr.io/sudodevstudio/dittoly:<version>` (linux/amd64 and linux/arm64, with an SBOM
+and signed build provenance). `compose.server.yml` runs it with HTTPS and single sign-on already set: nothing to
+build, and nothing in the Compose file to edit. You need a host with Docker Engine 28 or later (step 1 below), a DNS
+name pointing at it, ports 80 and 443 open, and an identity provider (step 3 below lists what it needs).
+
+```bash
+mkdir dittoly && cd dittoly
+curl -fsSLO https://raw.githubusercontent.com/SudoDevStudio/dittoly/v0.1.0/compose.server.yml
+curl -fsSL -o .env https://raw.githubusercontent.com/SudoDevStudio/dittoly/v0.1.0/.env.example
+```
+
+In `.env`, set:
+
+| Setting | Value |
+| --- | --- |
+| `DITTOLY_DOMAIN` | The address people open, e.g. `dittoly.example.com` (no `https://`). Caddy gets its certificate for it |
+| `DITTOLY_VERSION` | The release to run, e.g. `0.1.0` |
+| `DITTOLY_MASTER_KEY` | `openssl rand -base64 32` — **back it up apart from the server; it cannot be recovered** |
+| `DITTOLY_OIDC_ISSUER`, `DITTOLY_OIDC_CLIENT_ID`, `DITTOLY_OIDC_CLIENT_SECRET` | From your identity provider; register `https://<DITTOLY_DOMAIN>/auth/callback` as the redirect URI |
+| `DITTOLY_AI_PROVIDER` and its key | `anthropic`, `openai`, `ollama`, or `none` (as in step 3 below) |
+
+Then start it and create the first admin:
+
+```bash
+docker compose -f compose.server.yml up -d
+docker compose -f compose.server.yml ps                                    # all healthy
+docker compose -f compose.server.yml exec dittoly node dist/src/cli/bootstrap.js admin
+```
+
+`https://<DITTOLY_DOMAIN>` is live once Caddy has its certificate (usually within a minute). PostgreSQL and RabbitMQ
+have no ports on the host at all, Dittoly listens only on `127.0.0.1:8080`, and only Caddy is reachable from outside.
+
+**Upgrade:** set `DITTOLY_VERSION` in `.env` to the new release, then `docker compose -f compose.server.yml up -d`.
+Back up first ([Backups](#backups)); migrations run when the new version starts.
+
+The steps below build the same thing from source, and explain each part.
+
 ## Setting it up
 
 ### 1. Prepare the host
@@ -171,6 +210,9 @@ are bound to `127.0.0.1` in `docker-compose.yml`. Keep them that way.
 ## Running it
 
 ### Upgrades
+
+With the published image (`compose.server.yml`): set `DITTOLY_VERSION` in `.env`, then
+`docker compose -f compose.server.yml up -d`. Built from source:
 
 ```bash
 git pull

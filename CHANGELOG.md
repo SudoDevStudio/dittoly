@@ -8,7 +8,7 @@ read the entry before upgrading.
 
 ## Unreleased
 
-## 0.1.0 — 2026-11-20
+## 0.1.0 — 2026-11-26
 
 The first numbered release. Everything described in the README and `docs/` is in it: modules, Flows and Super
 Flows, approvals that freeze an exact version, per-member credentials and delegation, the two sandbox backends,
@@ -45,5 +45,11 @@ to point at production unattended.
 
 - Prompt-injection containment now covers app data and webhook payloads, with the influence a value has at a step
   deciding whether a sign-off is required.
+- **A server in two commands.** Each release is published as `ghcr.io/sudodevstudio/dittoly` for linux/amd64 and
+  linux/arm64, with an SBOM and signed build provenance; `compose.server.yml` runs it in shared mode behind Caddy, which
+  gets the HTTPS certificate for `DITTOLY_DOMAIN` by itself, with PostgreSQL and RabbitMQ unreachable from outside.
+- **`npx dittoly run`** sets up and starts Dittoly on your own computer — packages, `.env` with a new key, the AI
+  (the CLIs you are signed in to first; a key typed hidden), PostgreSQL and RabbitMQ in Docker, the build — and
+  `--reset` starts over while keeping your account, teams, stored credentials and settings.
 - **A website**, published from `site/` to GitHub Pages, and `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` and issue
   templates for people who want to take part.

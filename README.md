@@ -77,16 +77,20 @@ Open the sign-in link it prints. Data is kept in `~/.dittoly`.
 
 ### Docker (shared server for a team)
 
-Step-by-step guide with system requirements, HTTPS, upgrades and backups: [docs/server.md](docs/server.md). In short, it needs Docker Engine 28+ with Compose.
+The published image with HTTPS and single sign-on, nothing to build: on a host with Docker Engine 28+, a DNS name and
+ports 80 and 443 open,
 
 ```bash
-git clone https://github.com/SudoDevStudio/dittoly dittoly && cd dittoly
-cp .env.example .env        # set the master key, OIDC, DITTOLY_SANDBOX=docker and HOST=0.0.0.0
-docker compose up -d
-docker compose exec dittoly node dist/src/cli/bootstrap.js admin   # first admin
+mkdir dittoly && cd dittoly
+curl -fsSLO https://raw.githubusercontent.com/SudoDevStudio/dittoly/v0.1.0/compose.server.yml
+curl -fsSL -o .env https://raw.githubusercontent.com/SudoDevStudio/dittoly/v0.1.0/.env.example
+# in .env: DITTOLY_DOMAIN, DITTOLY_MASTER_KEY (openssl rand -base64 32), the DITTOLY_OIDC_* lines, the AI
+docker compose -f compose.server.yml up -d
+docker compose -f compose.server.yml exec dittoly node dist/src/cli/bootstrap.js admin   # first admin
 ```
 
-The portal is at `DITTOLY_PUBLIC_URL` (port 8080).
+Caddy gets the certificate for your domain by itself; PostgreSQL and RabbitMQ get no ports on the host. Requirements,
+identity providers, upgrades and backups: [docs/server.md](docs/server.md), which also builds the same from source.
 
 For personal Docker use, set `DITTOLY_MODE: local` in `docker-compose.yml`. Startup automatically creates or reuses your admin and prints a sign-in link in `docker compose logs dittoly`; OIDC and manual bootstrap are unnecessary. After updating the source, rebuild with `docker compose up -d --build dittoly`.
 
