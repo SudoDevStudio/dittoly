@@ -2,6 +2,9 @@
 
 What changed for the person using Dittoly, newest first. Entries that only move code around are left out.
 
+Every merge to `main` is released on its own (see CONTRIBUTING.md, "Releases"), and each GitHub release lists the
+pull requests in it. This file is the readable summary, kept by hand.
+
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Before 1.0.0 a minor version can change behaviour:
 read the entry before upgrading.

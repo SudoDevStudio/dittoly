@@ -4,6 +4,9 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
+# The release sets the version here: the repository's package.json stays as it is, and the version lives in Git tags.
+ARG VERSION=""
+RUN if [ -n "$VERSION" ]; then npm pkg set version="$VERSION"; fi
 RUN npm run build && npm prune --omit=dev
 
 FROM node:26-alpine
