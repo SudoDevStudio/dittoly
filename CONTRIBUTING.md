@@ -60,6 +60,23 @@ test leaves behind, the container sandbox tests, and what CI runs.
 - A change to a sandbox, a credential path, an approval rule or the audit log gets a closer read, and may be asked
   for more tests. That is not distrust; it is the part that cannot be fixed afterwards.
 
+## Releases
+
+Every merge to `main` that changes more than documentation is released on its own: a Git tag, a GitHub release whose
+notes list the merged pull requests, and the server image `ghcr.io/sudodevstudio/dittoly:<version>`. A label on the
+pull request decides the version:
+
+| Label | Version |
+| --- | --- |
+| *(none)* | patch: 0.1.0 → 0.1.1 |
+| `release:minor` | minor: 0.1.0 → 0.2.0 — new behaviour |
+| `release:major` | major: 1.0.0 → 2.0.0 — something that worked before needs a change by the people running it |
+| `release:skip` | no release |
+
+Nothing is published before it is checked: the image is pushed as a candidate, started with `compose.server.yml`,
+and only promoted to its version when it passes. The version lives in the tag and the image; `package.json` in the
+repository is not bumped. Add what changed for users to `CHANGELOG.md` in the same pull request.
+
 ## Modules and Flows
 
 A module in `test/fixtures/` is an example others copy: give it a complete manifest (declared hosts, declared

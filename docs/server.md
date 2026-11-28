@@ -63,7 +63,7 @@ watch the Admin page's "Background work" card, and `docker stats`, in the first 
 
 ## Quick setup with the published image
 
-Each release is published as `ghcr.io/sudodevstudio/dittoly:<version>` (linux/amd64 and linux/arm64, with an SBOM
+Each release — every merge to `main` makes one — is published as `ghcr.io/sudodevstudio/dittoly:<version>` (linux/amd64 and linux/arm64, with an SBOM
 and signed build provenance). `compose.server.yml` runs it with HTTPS and single sign-on already set: nothing to
 build, and nothing in the Compose file to edit. You need a host with Docker Engine 28 or later (step 1 below), a DNS
 name pointing at it, ports 80 and 443 open, and an identity provider (step 3 below lists what it needs).

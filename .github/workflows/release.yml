@@ -1,38 +1,47 @@
-# The server image, ghcr.io/sudodevstudio/dittoly, that compose.server.yml runs (docs/server.md).
+# Releases and the server image, ghcr.io/sudodevstudio/dittoly, that compose.server.yml runs (docs/server.md).
 #
-# - On a published GitHub release: build for linux/amd64 and linux/arm64 and push :<version>, :<major>.<minor> and
-#   :latest, with an SBOM and build provenance attached and a signed attestation anyone can check:
-#     gh attestation verify oci://ghcr.io/sudodevstudio/dittoly:<version> --repo SudoDevStudio/dittoly
-# - On a pull request that changes the image or how it is run: build it (not pushed) and start the whole
-#   compose.server.yml stack with it, so a release never meets a Dockerfile that does not build or start.
+# Every merge to main that changes more than docs is a release. The merged pull request's label picks the version:
+#   release:major  1.0.0 → 2.0.0        release:minor  0.1.0 → 0.2.0
+#   release:skip   no release           (no label)     0.1.0 → 0.1.1
+# The first release, with no v* tag yet, is the version in package.json. The version lives only in the Git tag and
+# the image: package.json in the repository is not changed.
 #
-# Only on a published release, not on every pushed tag: publishing a release in the UI also creates its tag, and one
-# event per version keeps it to one build.
-name: Release image
+# Nothing is published untested. The image is built once, for linux/amd64 and linux/arm64, and pushed as
+# :candidate-<commit>; that exact image is then started with compose.server.yml and checked
+# (.github/scripts/smoke-server.sh). Only when it passes does the same image — same digest, not a rebuild — get
+# :<version>, :<major>.<minor> and :latest, a signed attestation, and a Git tag with a GitHub release whose notes list
+# the merged pull requests. Anyone can check the signature:
+#   gh attestation verify oci://ghcr.io/sudodevstudio/dittoly:<version> --repo SudoDevStudio/dittoly
+#
+# A pull request that changes the image or how it runs gets the same check on an image it builds without pushing.
+name: Release
 
 on:
-  release:
-    types: [published]
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - 'site/**'
+      - '**.md'
+      - '.github/ISSUE_TEMPLATE/**'
   workflow_dispatch:
     inputs:
-      tag:
-        description: 'Existing release tag to build and publish (for example v0.1.0)'
-        required: true
+      bump:
+        description: 'Version bump for a release by hand'
+        type: choice
+        options: [patch, minor, major]
+        default: patch
   pull_request:
     paths:
       - Dockerfile
-      - .dockerignore
       - compose.server.yml
       - .env.example
       - package-lock.json
       - .github/workflows/release.yml
+      - .github/scripts/smoke-server.sh
 
 permissions:
   contents: read
-
-concurrency:
-  group: release-${{ github.event.release.tag_name || inputs.tag || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   # Image names must be lower case (the owner is SudoDevStudio); compose.server.yml pulls this name.
@@ -44,10 +53,12 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    concurrency:
+      group: release-check-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-
       - name: Build the image (not pushed)
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -57,112 +68,150 @@ jobs:
           tags: ${{ env.IMAGE }}:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Start compose.server.yml with it
-        run: |
-          cp .env.example .env
-          sed -i "s|^DITTOLY_MASTER_KEY=.*|DITTOLY_MASTER_KEY=$(openssl rand -base64 32)|" .env
-          printf 'DITTOLY_DOMAIN=localhost\nDITTOLY_VERSION=ci\n' >> .env
-          docker compose -f compose.server.yml up -d --wait --wait-timeout 180
-
-      - name: It answers, directly and through Caddy
-        run: |
-          curl -fsS http://127.0.0.1:8080/ready | tee /dev/stderr | grep -q '"ready":true'
-          # Caddy serves localhost with its own internal certificate authority, hence -k.
-          curl -fsSk https://localhost/health
-          # PostgreSQL and RabbitMQ must not be reachable from the host: no port of theirs is published.
-          for port in 5432 5433 5672; do
-            if timeout 2 bash -c "exec 3<>/dev/tcp/127.0.0.1/$port" 2>/dev/null; then echo "::error::port $port is open on the host"; exit 1; fi
-          done
-
-      - name: The first admin can be created
-        run: |
-          docker compose -f compose.server.yml exec -T dittoly node dist/src/cli/bootstrap.js admin | grep -q '^token: '
-
-      - name: Logs, when something failed
-        if: failure()
-        run: docker compose -f compose.server.yml logs --no-color --tail 200
+      - name: Start compose.server.yml with it and check it
+        run: .github/scripts/smoke-server.sh ci
 
   # ---------------------------------------------------------------------------------------- releases
-  publish:
+  release:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
+    # One release at a time, in merge order: two merges must not both claim the same version.
+    concurrency:
+      group: release-main
+      cancel-in-progress: false
     permissions:
-      contents: read
+      contents: write # the tag and the GitHub release
       packages: write # push to ghcr.io
+      pull-requests: read # the merged pull request's labels
       id-token: write # sign the attestation
       attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          fetch-depth: 0 # the tags, to find the last version
 
-      - name: Version from the tag
-        id: version
+      - name: Decide the version
+        id: plan
         env:
-          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          EVENT: ${{ github.event_name }}
+          BUMP_INPUT: ${{ inputs.bump }}
         run: |
-          case "$TAG" in v[0-9]*.[0-9]*.[0-9]*) ;; *) echo "::error::Not a version tag: $TAG"; exit 1 ;; esac
-          version="${TAG#v}"
-          # The tag must match package.json, so the image and the code agree on what version they are.
-          pkg=$(node -p 'require("./package.json").version')
-          if [ "$pkg" != "$version" ]; then echo "::error::Tag $TAG but package.json says $pkg"; exit 1; fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          # A pre-release (0.2.0-rc.1) never becomes :latest or :<major>.<minor>.
-          case "$version" in *-*) echo "prerelease=true" ;; *) echo "prerelease=false" ;; esac >> "$GITHUB_OUTPUT"
+          if [ "$EVENT" = workflow_dispatch ]; then
+            bump="$BUMP_INPUT"; source="run by hand"
+          else
+            labels=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" --jq '[.[0].labels[]?.name] | join(" ")' 2>/dev/null || true)
+            pr=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" --jq '.[0].number // empty' 2>/dev/null || true)
+            source="${pr:+pull request #$pr}"; source="${source:-a direct push}"
+            case " $labels " in
+              *" release:skip "*) echo "skip=true" >> "$GITHUB_OUTPUT"; echo "No release: $source is labelled release:skip."; exit 0 ;;
+              *" release:major "*) bump=major ;;
+              *" release:minor "*) bump=minor ;;
+              *) bump=patch ;;
+            esac
+          fi
+          last=$(git tag -l 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)
+          if [ -z "$last" ]; then
+            # The first release is what package.json says it is.
+            version=$(node -p 'require("./package.json").version'); why="first release (package.json)"
+          else
+            IFS=. read -r major minor patch <<< "${last#v}"
+            case "$bump" in
+              major) version="$((major + 1)).0.0" ;;
+              minor) version="$major.$((minor + 1)).0" ;;
+              *)     version="$major.$minor.$((patch + 1))" ;;
+            esac
+            why="$bump after $last"
+          fi
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "::error::v$version already exists"; exit 1
+          fi
+          echo "Releasing v$version — $why, from $source."
+          {
+            echo "skip=false"
+            echo "version=$version"
+            echo "minor=${version%.*}"
+            echo "candidate=candidate-${SHA::12}"
+          } >> "$GITHUB_OUTPUT"
 
-      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-
-      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+      - if: steps.plan.outputs.skip != 'true'
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - if: steps.plan.outputs.skip != 'true'
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - if: steps.plan.outputs.skip != 'true'
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - id: meta
-        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
-        with:
-          images: ${{ env.IMAGE }}
-          tags: |
-            type=semver,pattern={{version}},value=v${{ steps.version.outputs.version }}
-            type=semver,pattern={{major}}.{{minor}},value=v${{ steps.version.outputs.version }},enable=${{ steps.version.outputs.prerelease == 'false' }}
-            type=raw,value=latest,enable=${{ steps.version.outputs.prerelease == 'false' }}
-          labels: |
-            org.opencontainers.image.title=Dittoly
-            org.opencontainers.image.description=Self-hosted orchestration: AI drafts the Flow, a person approves it, the engine runs exactly that version.
-            org.opencontainers.image.licenses=Apache-2.0
-
-      - id: build
+      - name: Build once and push as a candidate
+        id: build
+        if: steps.plan.outputs.skip != 'true'
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ env.IMAGE }}:${{ steps.plan.outputs.candidate }}
+          build-args: VERSION=${{ steps.plan.outputs.version }}
+          labels: |
+            org.opencontainers.image.title=Dittoly
+            org.opencontainers.image.description=Self-hosted orchestration: AI drafts the Flow, a person approves it, the engine runs exactly that version.
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.version=${{ steps.plan.outputs.version }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
           # What is inside (SBOM) and how it was built (provenance), attached to the image itself.
           sbom: true
           provenance: mode=max
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+      - name: Start that exact image with compose.server.yml and check it
+        if: steps.plan.outputs.skip != 'true'
+        run: .github/scripts/smoke-server.sh "${{ steps.plan.outputs.candidate }}"
+
+      - name: Promote the tested image to its version (same digest, no rebuild)
+        if: steps.plan.outputs.skip != 'true'
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+          MINOR: ${{ steps.plan.outputs.minor }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          docker buildx imagetools create \
+            -t "$IMAGE:$VERSION" -t "$IMAGE:$MINOR" -t "$IMAGE:latest" \
+            "$IMAGE@$DIGEST"
+
+      - if: steps.plan.outputs.skip != 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
-      - name: Summary
+      - name: Tag and publish the GitHub release
+        if: steps.plan.outputs.skip != 'true'
         env:
-          VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.plan.outputs.version }}
           DIGEST: ${{ steps.build.outputs.digest }}
+          SHA: ${{ github.sha }}
         run: |
+          cat > notes-head.md <<NOTES
+          **Server image:** \`$IMAGE:$VERSION\` (linux/amd64, linux/arm64) · digest \`$DIGEST\`
+          Started with \`compose.server.yml\` and checked before it was published. To run it, set \`DITTOLY_VERSION=$VERSION\` in \`.env\` — [docs/server.md](https://github.com/$GITHUB_REPOSITORY/blob/v$VERSION/docs/server.md).
+          Verify: \`gh attestation verify oci://$IMAGE:$VERSION --repo $GITHUB_REPOSITORY\`
+
+          NOTES
+          # --notes is put in front of the notes GitHub generates from the merged pull requests.
+          gh release create "v$VERSION" --target "$SHA" --title "Dittoly $VERSION" --generate-notes --notes "$(cat notes-head.md)"
           {
-            echo "### $IMAGE:$VERSION"
+            echo "### Released v$VERSION"
             echo
-            echo "Digest \`$DIGEST\` (linux/amd64, linux/arm64)."
+            echo "\`$IMAGE:$VERSION\` · \`$DIGEST\`"
             echo
-            echo "The first image is private on GHCR: make it public once under Packages → dittoly → Package settings."
+            echo "If this is the first image, make the package public once: Packages → dittoly → Package settings."
           } >> "$GITHUB_STEP_SUMMARY"
